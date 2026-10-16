@@ -95,11 +95,11 @@ function renderHeader() {
     if (isAdmin) {
       adminTools.innerHTML = `
         <button class="btn-sm btn-gold" id="btn-change-pass" title="Change Admin Password">🔑 Password</button>
-        <button class="btn-sm btn-gold" id="btn-export-backup" title="Download Society Backup JSON">💾 Backup</button>
+        <button class="btn-sm btn-gold" id="btn-backup-restore" title="Backup & Disaster Recovery">💾 Backup & Restore</button>
         <button class="btn-sm btn-danger" id="btn-admin-logout" title="Exit Administrator Mode">🚪 Sign Out</button>
       `;
       $('btn-change-pass')?.addEventListener('click', openChangePasswordModal);
-      $('btn-export-backup')?.addEventListener('click', exportBackupJSON);
+      $('btn-backup-restore')?.addEventListener('click', openBackupRestoreModal);
       $('btn-admin-logout')?.addEventListener('click', () => {
         state.setRole('member', 1);
         activeTab = 'Members';
@@ -2144,6 +2144,159 @@ function exportBackupJSON() {
   dlAnchor.setAttribute("href", dataStr);
   dlAnchor.setAttribute("download", `sumukha_society_backup_${getTodayDate()}.json`);
   dlAnchor.click();
+}
+
+function openBackupRestoreModal() {
+  if (!state.isAdmin()) {
+    return alert('Access Restricted: Only Society Administrators can manage backups and disaster recovery.');
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <span>💾</span>
+            <span>Backup & Disaster Recovery</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            Export offline backups or restore complete ledger data in case of disaster
+          </div>
+        </div>
+        <button class="btn-sm" id="btn-close-backup-modal">✕</button>
+      </div>
+
+      <!-- Export Section -->
+      <div style="background: var(--surface-subtle); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; margin-bottom: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="font-size: 13.5px; color: var(--text-main);">📥 Export Current Society Data</strong>
+          <span class="badge badge-ok" style="font-size: 11px;">Active Ledger</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">
+          Downloads an offline JSON snapshot containing all members (${state.data.members.length}), contributions (${(state.data.contribs || []).length}), active loans (${(state.data.loans || []).length}), and investments (${(state.data.invs || []).length}).
+        </p>
+        <button class="btn-primary" id="btn-download-backup-json" style="width: 100%; padding: 9px; font-size: 13px;">
+          💾 Download Backup JSON File
+        </button>
+      </div>
+
+      <!-- Import / Disaster Recovery Section -->
+      <div style="border: 1px dashed var(--gold-main); border-radius: var(--radius-md); padding: 14px; background: rgba(245, 158, 11, 0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <strong style="font-size: 13.5px; color: #d97706;">🚨 Disaster Recovery (Import JSON)</strong>
+          <span class="badge badge-danger" style="font-size: 10.5px;">Overwrites State</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">
+          Select a previously downloaded <code>.json</code> backup file to reconstruct society financial accounts, members, and records.
+        </p>
+
+        <input type="file" id="input-backup-file" accept=".json,application/json" style="width: 100%; font-size: 12.5px; margin-bottom: 12px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);">
+
+        <div id="backup-preview-box" style="display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 12px;">
+          <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; color: var(--text-main);">Backup Contents Verified:</div>
+          <div id="backup-preview-stats" style="font-size: 12px; color: var(--text-muted); line-height: 1.6;"></div>
+        </div>
+
+        <button class="btn-gold" id="btn-execute-restore" style="width: 100%; padding: 10px; font-size: 13px; font-weight: bold; display: none;" disabled>
+          🔄 Restore Database from This File
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelector('#btn-close-backup-modal').onclick = () => modal.remove();
+
+  modal.querySelector('#btn-download-backup-json').onclick = () => {
+    exportBackupJSON();
+  };
+
+  const fileInput = modal.querySelector('#input-backup-file');
+  const previewBox = modal.querySelector('#backup-preview-box');
+  const previewStats = modal.querySelector('#backup-preview-stats');
+  const restoreBtn = modal.querySelector('#btn-execute-restore');
+
+  let parsedBackupData = null;
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) {
+      previewBox.style.display = 'none';
+      restoreBtn.style.display = 'none';
+      restoreBtn.disabled = true;
+      parsedBackupData = null;
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        if (!json || typeof json !== 'object' || !Array.isArray(json.members)) {
+          throw new Error('Invalid backup file: file missing members array.');
+        }
+
+        parsedBackupData = json;
+        const membersCount = json.members.length;
+        const contribsCount = Array.isArray(json.contribs) ? json.contribs.length : 0;
+        const loansCount = Array.isArray(json.loans) ? json.loans.length : 0;
+        const invsCount = Array.isArray(json.invs) ? json.invs.length : 0;
+
+        previewStats.innerHTML = `
+          • <strong>File:</strong> ${escapeHTML(file.name)} (${(file.size / 1024).toFixed(1)} KB)<br>
+          • <strong>Members:</strong> ${membersCount}<br>
+          • <strong>Contributions:</strong> ${contribsCount} records<br>
+          • <strong>Loans & EMIs:</strong> ${loansCount} records<br>
+          • <strong>Investments:</strong> ${invsCount} records
+        `;
+
+        previewBox.style.display = 'block';
+        restoreBtn.style.display = 'block';
+        restoreBtn.disabled = false;
+      } catch (err) {
+        console.error('Backup parse error:', err);
+        alert('❌ Could not parse backup file: ' + err.message + '\n\nPlease ensure you selected a valid Sumukha Co-Op Society JSON backup file.');
+        fileInput.value = '';
+        previewBox.style.display = 'none';
+        restoreBtn.style.display = 'none';
+        restoreBtn.disabled = true;
+        parsedBackupData = null;
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  restoreBtn.onclick = async () => {
+    if (!parsedBackupData) return;
+
+    const mCount = parsedBackupData.members.length;
+    const cCount = (parsedBackupData.contribs || []).length;
+    const lCount = (parsedBackupData.loans || []).length;
+
+    const confirmed = confirm(
+      '⚠️ DISASTER RECOVERY CONFIRMATION\\n\\nAre you sure you want to restore and overwrite the society ledger with this backup?\\n\\n• Members: ' + mCount + '\\n• Contributions: ' + cCount + '\\n• Loans: ' + lCount + '\\n\\nThis will immediately update all views and database records.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      restoreBtn.disabled = true;
+      restoreBtn.textContent = '⏳ Restoring Database...';
+
+      const res = await state.restoreBackup(parsedBackupData);
+      modal.remove();
+      render();
+      alert('✅ Disaster Recovery Successful!\\n\\nRestored:\\n• ' + res.membersCount + ' Members\\n• ' + res.contribsCount + ' Contribution Records\\n• ' + res.loansCount + ' Loans\\n• ' + res.invsCount + ' Investments\\n\\nAll ledger tables and calculations are updated.');
+    } catch (err) {
+      console.error('Restore error:', err);
+      alert('❌ Restore Failed: ' + err.message);
+      restoreBtn.disabled = false;
+      restoreBtn.textContent = '🔄 Restore Database from This File';
+    }
+  };
 }
 
 function escapeHTML(str) {

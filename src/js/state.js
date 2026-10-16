@@ -317,6 +317,64 @@ export class AppState {
 
     return { success: true, message: `Details for "${member.name}" successfully updated and saved in database.` };
   }
+
+  async restoreBackup(backupData) {
+    if (!backupData || typeof backupData !== 'object') {
+      throw new Error('Invalid backup file: content is not a valid JSON object.');
+    }
+    if (!Array.isArray(backupData.members) || backupData.members.length === 0) {
+      throw new Error('Invalid backup file: missing or empty members array.');
+    }
+
+    // Ensure Sagar and Naveen retain admin status if present
+    const sagar = backupData.members.find(m => m.id === 10 || (m.name && m.name.toLowerCase() === 'sagar'));
+    if (sagar) {
+      sagar.is_admin = true;
+      if (!sagar.password) sagar.password = "sagar@123";
+    }
+    const naveen = backupData.members.find(m => m.id === 6 || (m.name && m.name.toLowerCase() === 'naveen'));
+    if (naveen) {
+      naveen.is_admin = true;
+      if (!naveen.password) naveen.password = "Naveen@123";
+    }
+
+    this.data = {
+      monthly: Number(backupData.monthly) || 5000,
+      members: backupData.members,
+      contribs: Array.isArray(backupData.contribs) ? backupData.contribs : [],
+      loans: Array.isArray(backupData.loans) ? backupData.loans : [],
+      invs: Array.isArray(backupData.invs) ? backupData.invs : []
+    };
+
+    this.save();
+
+    // Optionally sync members to Supabase if client is active
+    try {
+      const client = getSupabaseClient();
+      if (client) {
+        for (const m of this.data.members) {
+          await client.from('members').upsert({
+            id: m.id,
+            name: m.name,
+            email: m.email || '',
+            phone: m.phone || '',
+            monthly_commitment: m.monthly || 5000,
+            is_admin: Boolean(m.is_admin),
+            password: m.password || null
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase restore sync note:', e);
+    }
+
+    return {
+      membersCount: this.data.members.length,
+      contribsCount: this.data.contribs.length,
+      loansCount: this.data.loans.length,
+      invsCount: this.data.invs.length
+    };
+  }
 }
 
 export const state = new AppState();
