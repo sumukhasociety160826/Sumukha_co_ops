@@ -1865,92 +1865,34 @@ async function handleBulkDispatchReminders() {
 
   const stage = $('bulk-reminder-stage')?.value || '3_day';
   const curMonth = getCurrentMonth();
-  const cfg = getEmailServiceConfig();
 
-  // If Resend API key is configured, send real emails in bulk
-  if (cfg.apiKey && cfg.apiKey.trim()) {
-    if (!confirm(`Dispatch real automated emails via Resend to ${checked.length} selected member(s)?`)) return;
+  if (!confirm(`Dispatch automated reminder emails from sumukhasociety@gmail.com to ${checked.length} selected member(s)?`)) return;
 
-    let successCount = 0;
-    let failCount = 0;
-    let domainRestricted = false;
+  let successCount = 0;
+  let failCount = 0;
 
-    for (const item of checked) {
-      const template = generateReminderEmailTemplate({
-        memberName: item.dataset.name,
-        targetMonth: curMonth,
-        stage,
-        amountDue: Number(item.dataset.due)
+  for (const item of checked) {
+    const template = generateReminderEmailTemplate({
+      memberName: item.dataset.name,
+      targetMonth: curMonth,
+      stage,
+      amountDue: Number(item.dataset.due)
+    });
+
+    try {
+      await sendRealEmail({
+        to: item.dataset.email,
+        subject: template.subject,
+        html: template.html
       });
-
-      try {
-        await sendRealEmail({
-          to: item.dataset.email,
-          subject: template.subject,
-          html: template.html,
-          apiKey: cfg.apiKey
-        });
-        successCount++;
-      } catch (e) {
-        console.error(e);
-        failCount++;
-        if (e.message && e.message.includes('only send testing emails to your own email address')) {
-          domainRestricted = true;
-        }
-      }
+      successCount++;
+    } catch (e) {
+      console.error(e);
+      failCount++;
     }
-
-    if (domainRestricted && successCount === 0) {
-      const emails = checked.map(c => c.dataset.email).join(',');
-      const sampleMember = checked[0];
-      const sampleSubject = generateReminderEmailTemplate({
-        memberName: 'Member',
-        targetMonth: curMonth,
-        stage,
-        amountDue: Number(sampleMember.dataset.due)
-      }).subject;
-
-      const sampleBody = generateReminderPlainText({
-        memberName: 'Society Member',
-        targetMonth: curMonth,
-        stage,
-        amountDue: Number(sampleMember.dataset.due)
-      });
-
-      const choice = confirm(`📧 Resend Sandbox Mode Notice:\n\nYour Resend account is currently in test mode, which allows direct automated delivery to your registered account (sumukhasociety@gmail.com). To send to all member emails directly from Resend without opening your mail app, verify a domain at resend.com/domains.\n\nWould you like to open your Email App (Gmail/Outlook) with all ${checked.length} recipients pre-filled right now?`);
-      if (choice) {
-        openNativeMailClient(emails, sampleSubject, sampleBody);
-      }
-      return;
-    }
-
-    alert(`✅ Bulk Email Dispatch Complete!\n• Delivered: ${successCount}\n• Errors: ${failCount}`);
-    return;
   }
 
-  // If no API key configured, prompt user with options
-  const emails = checked.map(c => c.dataset.email).join(',');
-  const sampleMember = checked[0];
-  const sampleSubject = generateReminderEmailTemplate({
-    memberName: 'Member',
-    targetMonth: curMonth,
-    stage,
-    amountDue: Number(sampleMember.dataset.due)
-  }).subject;
-
-  const sampleBody = generateReminderPlainText({
-    memberName: 'Society Member',
-    targetMonth: curMonth,
-    stage,
-    amountDue: Number(sampleMember.dataset.due)
-  });
-
-  const choice = confirm(`You have selected ${checked.length} member(s).\n\nNo automated email API key is connected yet.\n\nClick OK to open your email client (Gmail/Outlook) with all ${checked.length} recipients pre-filled, or click Cancel to configure a free Resend API key.`);
-  if (choice) {
-    openNativeMailClient(emails, sampleSubject, sampleBody);
-  } else {
-    openEmailSettingsModal();
-  }
+  alert(`✅ Bulk Email Dispatch Complete!\n• Delivered: ${successCount}\n• Errors: ${failCount}`);
 }
 
 async function handleSendSingleReminder(id, name, email, due) {
@@ -1961,7 +1903,6 @@ async function handleSendSingleReminder(id, name, email, due) {
   const member = state.data.members.find(m => m.id === Number(id));
   const stage = $('bulk-reminder-stage')?.value || '3_day';
   const curMonth = getCurrentMonth();
-  const cfg = getEmailServiceConfig();
 
   const template = generateReminderEmailTemplate({
     memberName: name,
@@ -1977,42 +1918,19 @@ async function handleSendSingleReminder(id, name, email, due) {
     amountDue: Number(due)
   });
 
-  // If Resend API key is configured, send directly via API
-  if (cfg.apiKey && cfg.apiKey.trim()) {
-    try {
-      await sendRealEmail({
-        to: email,
-        subject: template.subject,
-        html: template.html,
-        apiKey: cfg.apiKey
-      });
-      alert(`✅ Real email successfully delivered to ${name} (${email})!`);
-      return;
-    } catch (err) {
-      console.error(err);
-      if (err.message && err.message.includes('only send testing emails to your own email address')) {
-        const choice = confirm(`📧 Resend Sandbox Mode Notice:\n\nYour Resend account is currently in test mode, which allows automated delivery to sumukhasociety@gmail.com. To deliver directly to ${email} via Resend without opening your mail app, verify a domain in resend.com/domains.\n\nWould you like to open your Email App (Gmail/Outlook) with this reminder pre-filled for ${name} so you can send it now?`);
-        if (choice) {
-          openNativeMailClient(email, template.subject, plainText);
-        }
-        return;
-      }
-      if (!confirm(`Could not send via Resend API: ${err.message}\n\nWould you like to open your default email app instead?`)) {
-        return;
-      }
+  try {
+    await sendRealEmail({
+      to: email,
+      subject: template.subject,
+      html: template.html
+    });
+    alert(`✅ Reminder email successfully delivered to ${name} (${email})!`);
+  } catch (err) {
+    console.error('Email dispatch error:', err);
+    if (confirm(`Could not send automated email: ${err.message}\n\nWould you like to open your Email App (Gmail / Outlook) instead?`)) {
       openNativeMailClient(email, template.subject, plainText);
-      return;
     }
   }
-
-  // If no API key, open choice modal
-  openDispatchChoiceModal({
-    name,
-    email,
-    phone: member?.phone,
-    subject: template.subject,
-    body: plainText
-  });
 }
 
 function openDispatchChoiceModal({ name, email, phone, subject, body }) {
@@ -2174,88 +2092,33 @@ async function triggerReminderBatch(stage) {
   };
   const label = stageLabels[stage] || stage;
 
-  const cfg = getEmailServiceConfig();
-  if (cfg.apiKey && cfg.apiKey.trim()) {
-    if (!confirm(`Dispatch real automated ${label} emails via Resend to all ${unpaid.length} pending members?`)) return;
+  if (!confirm(`Dispatch automated ${label} emails from sumukhasociety@gmail.com to all ${unpaid.length} pending members?`)) return;
 
-    let successCount = 0;
-    let failCount = 0;
-    let domainRestricted = false;
+  let successCount = 0;
+  let failCount = 0;
 
-    for (const m of unpaid) {
-      const template = generateReminderEmailTemplate({
-        memberName: m.name,
-        targetMonth: curMonth,
-        stage,
-        amountDue: Number(m.remainingDue)
+  for (const m of unpaid) {
+    const template = generateReminderEmailTemplate({
+      memberName: m.name,
+      targetMonth: curMonth,
+      stage,
+      amountDue: Number(m.remainingDue)
+    });
+
+    try {
+      await sendRealEmail({
+        to: m.email,
+        subject: template.subject,
+        html: template.html
       });
-
-      try {
-        await sendRealEmail({
-          to: m.email,
-          subject: template.subject,
-          html: template.html,
-          apiKey: cfg.apiKey
-        });
-        successCount++;
-      } catch (err) {
-        console.error(err);
-        failCount++;
-        if (err.message && err.message.includes('only send testing emails to your own email address')) {
-          domainRestricted = true;
-        }
-      }
+      successCount++;
+    } catch (err) {
+      console.error(err);
+      failCount++;
     }
-
-    if (domainRestricted && successCount === 0) {
-      const emails = unpaid.map(u => u.email).join(',');
-      const sampleSubject = generateReminderEmailTemplate({
-        memberName: 'Member',
-        targetMonth: curMonth,
-        stage,
-        amountDue: Number(unpaid[0].remainingDue)
-      }).subject;
-
-      const sampleBody = generateReminderPlainText({
-        memberName: 'Society Member',
-        targetMonth: curMonth,
-        stage,
-        amountDue: Number(unpaid[0].remainingDue)
-      });
-
-      const choice = confirm(`📧 Resend Sandbox Mode Notice:\n\nYour Resend account is currently in test mode, which allows direct automated delivery to your registered account (sumukhasociety@gmail.com). To deliver to all members directly from Resend without opening your mail app, verify a domain at resend.com/domains.\n\nWould you like to open your Email App (Gmail/Outlook) with all ${unpaid.length} recipients pre-filled right now?`);
-      if (choice) {
-        openNativeMailClient(emails, sampleSubject, sampleBody);
-      }
-      return;
-    }
-
-    alert(`✅ ${label} Broadcast Complete!\n• Successfully Delivered: ${successCount}\n• Errors: ${failCount}`);
-    return;
   }
 
-  // If no API key configured, prompt with native mail client or setup
-  const emails = unpaid.map(u => u.email).join(',');
-  const sampleSubject = generateReminderEmailTemplate({
-    memberName: 'Member',
-    targetMonth: curMonth,
-    stage,
-    amountDue: Number(unpaid[0].remainingDue)
-  }).subject;
-
-  const sampleBody = generateReminderPlainText({
-    memberName: 'Society Member',
-    targetMonth: curMonth,
-    stage,
-    amountDue: Number(unpaid[0].remainingDue)
-  });
-
-  const choice = confirm(`Ready to dispatch ${label} to all ${unpaid.length} pending members.\n\nNo automated email API key is connected yet.\n\nClick OK to open your email client (Gmail/Outlook) with all ${unpaid.length} recipients pre-filled, or Cancel to configure Resend API.`);
-  if (choice) {
-    openNativeMailClient(emails, sampleSubject, sampleBody);
-  } else {
-    openEmailSettingsModal();
-  }
+  alert(`✅ ${label} Broadcast Complete!\n• Successfully Delivered: ${successCount}\n• Errors: ${failCount}`);
 }
 
 function exportBackupJSON() {

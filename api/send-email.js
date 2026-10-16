@@ -21,11 +21,7 @@ export default async function handler(req, res) {
   }
 
   const user = process.env.GMAIL_USER || 'sumukhasociety@gmail.com';
-  const pass = process.env.GMAIL_APP_PASS;
-
-  if (!pass) {
-    return res.status(500).json({ message: 'Server configuration notice: GMAIL_APP_PASS environment variable not set on host.' });
-  }
+  const pass = process.env.GMAIL_APP_PASS || 'iixquxmsvjaqjcgx';
 
   try {
     const transporter = nodemailer.createTransport({
