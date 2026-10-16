@@ -27,7 +27,7 @@ import {
 } from './reminders.js';
 import { getCloudConfig, saveCloudConfig } from './config.js';
 
-let activeTab = 'Dashboard';
+let activeTab = 'Members';
 let openLoanSchedules = {};
 
 // Cache DOM Elements
@@ -94,16 +94,23 @@ function renderHeader() {
 
     if (isAdmin) {
       adminTools.innerHTML = `
-        <button class="btn-sm btn-gold" id="btn-change-pass" title="Change Admin Password">🔑 Change Password</button>
+        <button class="btn-sm btn-gold" id="btn-change-pass" title="Change Admin Password">🔑 Password</button>
         <button class="btn-sm btn-gold" id="btn-export-backup" title="Download Society Backup JSON">💾 Backup</button>
+        <button class="btn-sm btn-danger" id="btn-admin-logout" title="Exit Administrator Mode">🚪 Sign Out</button>
       `;
       $('btn-change-pass')?.addEventListener('click', openChangePasswordModal);
       $('btn-export-backup')?.addEventListener('click', exportBackupJSON);
+      $('btn-admin-logout')?.addEventListener('click', () => {
+        state.setRole('member', 1);
+        activeTab = 'Members';
+        render();
+        alert('Signed out of Administrator session. Returned to Member Directory.');
+      });
     } else {
       adminTools.innerHTML = `
         <button class="btn-sm btn-primary" id="btn-admin-signin" title="Administrator Sign In">🔐 Administrator Sign In</button>
       `;
-      $('btn-admin-signin')?.addEventListener('click', openLoginModal);
+      $('btn-admin-signin')?.addEventListener('click', () => openLoginModal('admin'));
     }
   }
 }
@@ -1409,12 +1416,12 @@ function handleDeleteInvestment(id) {
    MODALS: AUTHENTICATION, EMAIL PREVIEW & BACKUPS
    ========================================================================== */
 
-function openLoginModal() {
+function openLoginModal(defaultPortal = null) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   const admins = state.getAdminList();
   const activeAdmin = state.getActiveAdmin() || admins[0];
-  let currentPortal = state.isAdmin() ? 'admin' : 'member';
+  let currentPortal = defaultPortal || (state.isAdmin() ? 'admin' : 'member');
 
   modal.innerHTML = `
     <div class="modal-content" style="max-width: 440px;">
@@ -1520,6 +1527,16 @@ function openLoginModal() {
     } else {
       passInput.type = 'password';
       togglePassBtn.textContent = '👁️';
+    }
+  });
+
+  if (currentPortal === 'admin' && passInput) {
+    setTimeout(() => passInput.focus(), 60);
+  }
+
+  passInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      modal.querySelector('#btn-submit-admin')?.click();
     }
   });
 

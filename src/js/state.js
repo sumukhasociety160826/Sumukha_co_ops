@@ -147,14 +147,19 @@ export class AppState {
 
   loadSession() {
     try {
-      const stored = localStorage.getItem(SESSION_KEY);
-      if (stored) return JSON.parse(stored);
+      // Clear any legacy persistent admin sessions from localStorage
+      localStorage.removeItem(SESSION_KEY);
+      const stored = sessionStorage.getItem(SESSION_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.role) return parsed;
+      }
     } catch (e) {}
     return {
-      role: 'admin',
-      memberId: 10,
-      adminId: 10,
-      adminName: 'Sagar'
+      role: 'member',
+      memberId: 1,
+      adminId: null,
+      adminName: null
     };
   }
 
@@ -169,7 +174,7 @@ export class AppState {
 
   saveSession() {
     try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(this.session));
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(this.session));
     } catch (e) {}
     this.notify();
   }

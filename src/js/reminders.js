@@ -79,7 +79,7 @@ export function generateReminderEmailTemplate({ memberName, targetMonth, stage, 
 
 
         <div style="text-align: center; margin-top: 24px;">
-          <a href="#" style="background: #0f172a; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; display: inline-block; border: 1px solid #d97706;">
+          <a href="https://sumukha-co-ops.vercel.app/" target="_blank" rel="noopener noreferrer" style="background: #0f172a; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; display: inline-block; border: 1px solid #d97706;">
             Open Your Member Portal →
           </a>
         </div>
@@ -115,6 +115,8 @@ Our records show that your monthly contribution for ${monthLabel} is pending:
 • Period: ${monthLabel}
 
 Please initiate the payment at your earliest convenience to keep your account current.
+
+Open Member Portal: https://sumukha-co-ops.vercel.app/
 
 Warm regards,
 Administration
