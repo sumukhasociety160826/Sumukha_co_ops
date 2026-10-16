@@ -7,8 +7,8 @@ A modern, responsive, production-ready cooperative micro-financing platform buil
 ## 🌟 Key Features
 
 ### 1. Role-Based Access Control (Admin vs Regular Member)
-- **Designated Admins Only** (e.g. Adith, Prakash):
-  - Protected with Master Admin Security PIN (`180826`) or Supabase Auth.
+- **Designated Admins Only** :
+  - Protected with Master Admin Security PIN () or Supabase Auth.
   - Full CRUD operations: Add/edit members, change monthly commitments, record single contributions, **1-Click "Add this month for all" batch action**, issue loans, record repayments, foreclose loans, and manage investments.
 - **Regular Members (Users)**:
   - **Strictly View-Only Access**: All modification buttons and forms are completely hidden and disabled.
@@ -119,5 +119,5 @@ jobs:
 ---
 
 ## 🔐 Credentials & Default Access
-- **Admin PIN**: `180826`
+- **Admin PIN**: ``
 - **Member View**: Click the user badge in the header, select **Member**, and choose any member name to experience the strictly view-only portal.
