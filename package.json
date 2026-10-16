@@ -1,0 +1,22 @@
+{
+  "name": "sumukha-coop-society",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Full-Stack Micro-Financing and Cooperative Society Management Platform",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "reminders": "node scripts/send-reminders.js"
+  },
+  "devDependencies": {
+    "vite": "^5.4.9"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.3",
+    "nodemailer": "^10.1.2"
+  }
+}

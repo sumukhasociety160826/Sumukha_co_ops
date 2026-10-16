@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sumukha Co-Operative Society | Full-Stack Portal</title>
+  <meta name="description" content="Production-ready cooperative micro-financing platform for Sumukha Co-Op Society with Member and Admin portals.">
+  <link rel="stylesheet" href="./src/css/style.css">
+  <link rel="icon" type="image/jpeg" href="./src/resources/logo.jpg">
+</head>
+<body class="role-member">
+  <div class="app-wrapper">
+    <!-- Header Section -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-logo-frame">
+          <img src="./src/resources/logo.jpg" alt="Sumukha Co Op Society Official Emblem" class="brand-logo-img">
+        </div>
+        <div class="brand-info">
+          <h1>Sumukha Co Op Society</h1>
+          <div class="subtitle">
+            <span>13 members · contributions, loans &amp; investments</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Interactive User & Role Badge -->
+        <div id="user-badge" class="user-badge" title="Click to Switch User / Admin Login">
+          <span>👤 Member</span>
+          <span class="role-tag">VIEW ONLY</span>
+        </div>
+
+        <!-- Light / Dark Mode Toggle -->
+        <button class="btn-sm" onclick="window.toggleTheme()" title="Toggle Dark/Light Mode">
+          🌓 Theme
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Bar -->
+    <div class="nav-controls">
+      <nav id="tab-nav" class="tab-nav">
+        <!-- Injected via app.js -->
+      </nav>
+    </div>
+
+    <!-- Dynamic Main Content -->
+    <main id="main-content">
+      <!-- Injected by Active Tab Controller -->
+    </main>
+
+    <!-- Executive Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <!-- Brand & Mission -->
+        <div class="footer-brand">
+          <div class="footer-brand-header">
+            <img src="./src/resources/logo.jpg" alt="Sumukha Co-Op Society" class="footer-logo-img">
+            <div style="text-align: left;">
+              <div class="footer-brand-title">Sumukha Co-Operative Society</div>
+              <div style="font-size: 11.5px; color: var(--gold-main); font-weight: 600;">Mutual Savings &amp; Micro-Financing</div>
+            </div>
+          </div>
+          <p class="footer-brand-desc">
+            Empowering our members through cooperative mutual thrift, transparent contribution tracking, flexible low-interest emergency financing, and collective investment growth.
+          </p>
+          <a href="mailto:sumukhasociety@gmail.com" class="footer-email-badge" title="Contact Society Administration">
+            <span>📧</span>
+            <span>sumukhasociety@gmail.com</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="footer-bottom">
+        <div>
+          © 2026 Sumukha Co-Operative Society · All rights reserved.
+        </div>
+        <div>
+          All financial figures recorded in Indian National Rupees (INR · ₹)
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Main JavaScript App Entry -->
+  <script type="module">
+    import { initApp } from './src/js/app.js';
+    window.addEventListener('DOMContentLoaded', () => {
+      initApp();
+    });
+  </script>
+</body>
+</html>
