@@ -305,7 +305,7 @@ function renderDashboardView() {
 
     return `
       <tr style="${isCurrent ? 'background: var(--primary-light); font-weight: 600;' : ''}">
-        <td><strong>${escapeHTML(m.name)}</strong> ${m.is_admin ? '<span class="badge badge-info">Admin</span>' : ''}</td>
+        <td><strong>${escapeHTML(m.name)}</strong> ${(isAdmin && m.is_admin) ? '<span class="badge badge-info">Admin</span>' : ''}</td>
         <td class="t-right">${formatCurrency(totalContributed)}</td>
         <td class="t-right">${sharePct.toFixed(1)}%</td>
         <td class="t-right ${loanDue > 0 ? 'bad' : ''}">${formatCurrency(loanDue)}</td>
@@ -438,8 +438,8 @@ function renderMembersView() {
                   <strong>${formatCurrency(getMemberCommitment(m, state.data.monthly))}</strong>
                 </td>
                 <td>
-                  <span class="badge ${m.is_admin ? 'badge-ok' : 'badge-neutral'}">
-                    ${m.is_admin ? '👑 Administrator' : '👤 Member'}
+                  <span class="badge ${(isAdmin && m.is_admin) ? 'badge-ok' : 'badge-neutral'}">
+                    ${(isAdmin && m.is_admin) ? '👑 Administrator' : '👤 Member'}
                   </span>
                 </td>
                 ${isAdmin ? `
@@ -944,7 +944,7 @@ function renderRemindersView() {
               <span>🛡️</span> Administrator Controlled Notification System
             </div>
             <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.5;">
-              Automated email reminders, WhatsApp notices, and bulk payment dispatches are configured and sent exclusively by Society Administrators (<strong>Sagar</strong> & <strong>Naveen</strong>).
+              Automated email reminders, WhatsApp notices, and bulk payment dispatches are configured and sent exclusively by Society Administration.
             </div>
           </div>
           <span class="badge" style="background: var(--surface-subtle); color: var(--text-dim); font-size: 11px;">
@@ -1475,20 +1475,14 @@ function openLoginModal(defaultPortal = null) {
       <!-- Administrator Sign-In Pane -->
       <div id="pane-portal-admin" style="${currentPortal === 'admin' ? 'display: block;' : 'display: none;'}">
         <div class="form-group" style="margin-bottom: 14px;">
-          <label style="font-size: 12px; font-weight: bold; margin-bottom: 4px;">Select Administrator Account:</label>
-          <select id="modal-admin-select" style="width: 100%;">
-            ${admins.map(a => `
-              <option value="${a.id}" ${activeAdmin && activeAdmin.id === a.id ? 'selected' : ''}>
-                ${escapeHTML(a.name)} (${escapeHTML(a.email)})
-              </option>
-            `).join('')}
-          </select>
+          <label style="font-size: 12px; font-weight: bold; margin-bottom: 4px;">Administrator Username or Email:</label>
+          <input type="text" id="modal-admin-identifier" placeholder="Enter admin username, email, or member #" style="width: 100%;" autocomplete="username">
         </div>
 
         <div class="form-group" style="margin-bottom: 18px;">
           <label style="font-size: 12px; font-weight: bold; margin-bottom: 4px;">Password:</label>
           <div style="position: relative; display: flex; align-items: center;">
-            <input type="password" id="modal-admin-password" placeholder="Enter password" style="width: 100%; padding-right: 42px;">
+            <input type="password" id="modal-admin-password" placeholder="Enter admin password" style="width: 100%; padding-right: 42px;">
             <button type="button" id="btn-toggle-pass" style="position: absolute; right: 6px; background: transparent; border: none; cursor: pointer; font-size: 14px; padding: 4px;" title="Show/Hide Password">👁️</button>
           </div>
         </div>
@@ -1566,19 +1560,22 @@ function openLoginModal(defaultPortal = null) {
 
   // Admin Sign-in
   modal.querySelector('#btn-submit-admin').onclick = async () => {
-    const adminId = Number(modal.querySelector('#modal-admin-select').value);
+    const identifier = modal.querySelector('#modal-admin-identifier')?.value.trim();
     const password = passInput.value;
+    if (!identifier) {
+      return alert('Please enter your administrator username, email, or member #.');
+    }
     const submitBtn = modal.querySelector('#btn-submit-admin');
     if (submitBtn) submitBtn.textContent = 'Verifying with database...';
 
-    const verify = await state.verifyAdminLoginAsync(adminId, password);
+    const verify = await state.verifyAdminLoginAsync(identifier, password);
 
     if (!verify.success) {
-      if (submitBtn) submitBtn.textContent = 'Sign In to Administrator Console';
+      if (submitBtn) submitBtn.textContent = 'Sign In as Administrator';
       return alert(verify.message);
     }
 
-    state.setRole('admin', adminId, { id: verify.admin.id, name: verify.admin.name });
+    state.setRole('admin', verify.admin.id, { id: verify.admin.id, name: verify.admin.name });
     modal.remove();
     alert(`Welcome, Administrator ${verify.admin.name}.`);
   };
@@ -1592,6 +1589,7 @@ function openLoginModal(defaultPortal = null) {
 }
 
 function openEditMemberModal(memberId) {
+  if (!state.isAdmin()) return alert('Access restricted to administrators.');
   const member = state.data.members.find(m => m.id === Number(memberId));
   if (!member) return alert('Member profile not found.');
 
@@ -1697,6 +1695,7 @@ function openEditMemberModal(memberId) {
 }
 
 function openAddMemberModal() {
+  if (!state.isAdmin()) return alert('Access restricted to administrators.');
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   const newId = Math.max(...state.data.members.map(m => m.id), 0) + 1;
@@ -1898,7 +1897,7 @@ function updateBulkSelectionUI() {
 
 async function handleBulkDispatchReminders() {
   if (!state.isAdmin()) {
-    return alert('Access Restricted: Only Society Administrators (Sagar & Naveen) can dispatch reminders.');
+    return alert('Access Restricted: Only Society Administrators can dispatch reminders.');
   }
 
   const checked = Array.from(document.querySelectorAll('.check-unpaid-item:checked'));
@@ -1940,7 +1939,7 @@ async function handleBulkDispatchReminders() {
 
 async function handleSendSingleReminder(id, name, email, due) {
   if (!state.isAdmin()) {
-    return alert('Access Restricted: Only Society Administrators (Sagar & Naveen) can dispatch reminders.');
+    return alert('Access Restricted: Only Society Administrators can dispatch reminders.');
   }
 
   const member = state.data.members.find(m => m.id === Number(id));
@@ -2118,7 +2117,7 @@ function openEmailPreview(name, due) {
 
 async function triggerReminderBatch(stage) {
   if (!state.isAdmin()) {
-    return alert('Access Restricted: Only Society Administrators (Sagar & Naveen) can dispatch reminders to everyone.');
+    return alert('Access Restricted: Only Society Administrators can dispatch reminders to everyone.');
   }
 
   const curMonth = getCurrentMonth();

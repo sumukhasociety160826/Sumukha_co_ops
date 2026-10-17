@@ -540,7 +540,7 @@ export class AppState {
     });
 
     if (!admin) {
-      return { success: false, message: 'Admin account not found. Only authorized admins (Sagar or Naveen) can log in as Admin.' };
+      return { success: false, message: 'Invalid administrator credentials. Access restricted.' };
     }
 
     const isValid = await verifyPasswordHash(cleanPass, admin.password);
