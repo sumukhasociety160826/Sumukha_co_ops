@@ -362,7 +362,7 @@ export class AppState {
         client.from('loans').select('*').order('id', { ascending: true }),
         client.from('loan_repayments').select('*').order('id', { ascending: true }),
         client.from('investments').select('*').order('id', { ascending: true }),
-        client.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200).catch(() => ({ data: null }))
+        client.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200)
       ]);
 
       if (membersRes.error) throw membersRes.error;
