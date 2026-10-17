@@ -33,18 +33,31 @@ let openLoanSchedules = {};
 // Cache DOM Elements
 const $ = (id) => document.getElementById(id);
 
-export function initApp() {
+export async function initApp() {
   // Theme initialization
   const savedTheme = localStorage.getItem('sumukha_theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
+
+  // Restore active tab from session if available
+  const savedTab = sessionStorage.getItem('sumukha_active_tab');
+  if (savedTab) {
+    activeTab = savedTab;
+  }
 
   // Subscribe to state updates
   state.subscribe(() => {
     render();
   });
 
-  // Initial render
+  // Initial immediate render from local cache
   render();
+
+  // Load and sync live data from Supabase PostgreSQL database
+  try {
+    await state.syncFromCloud();
+  } catch (e) {
+    console.warn('Initial Supabase database sync notice:', e);
+  }
 }
 
 function render() {
@@ -79,7 +92,7 @@ function renderHeader() {
     userBadge.onclick = openLoginModal;
   }
 
-  // Admin Quick Tools in Header
+  // Admin Quick Tools & Live Cloud Database Status in Header
   let adminTools = $('header-admin-tools');
   const headerActions = document.querySelector('.header-actions');
   if (headerActions) {
@@ -92,8 +105,19 @@ function renderHeader() {
       headerActions.insertBefore(adminTools, $('user-badge'));
     }
 
+    // Dynamic Database Sync Badge
+    let syncBadgeHtml = '';
+    if (state.cloudStatus === 'syncing') {
+      syncBadgeHtml = `<button class="btn-sm" id="btn-cloud-sync" title="Syncing data with Supabase PostgreSQL..." style="border-color: var(--gold-border); background: var(--gold-tint); color: var(--gold-dark); cursor: pointer;"><span style="display:inline-block; animation: spin 1s infinite linear;">🔄</span> Syncing DB</button>`;
+    } else if (state.cloudStatus === 'error') {
+      syncBadgeHtml = `<button class="btn-sm" id="btn-cloud-sync" title="Database sync issue detected. Click to retry sync." style="border-color: rgba(220,38,38,0.4); background: var(--danger-bg); color: var(--danger); cursor: pointer;">⚠️ DB Offline (Retry)</button>`;
+    } else {
+      syncBadgeHtml = `<button class="btn-sm" id="btn-cloud-sync" title="Supabase Database Synced. Click to refresh latest records." style="border-color: rgba(37,99,235,0.35); background: var(--navy-light); color: var(--navy-blue); cursor: pointer;">🟢 DB Synced</button>`;
+    }
+
     if (isAdmin) {
       adminTools.innerHTML = `
+        ${syncBadgeHtml}
         <button class="btn-sm btn-gold" id="btn-change-pass" title="Change Admin Password">🔑 Password</button>
         <button class="btn-sm btn-gold" id="btn-backup-restore" title="Backup & Disaster Recovery">💾 Backup & Restore</button>
         <button class="btn-sm btn-danger" id="btn-admin-logout" title="Exit Administrator Mode">🚪 Sign Out</button>
@@ -103,15 +127,28 @@ function renderHeader() {
       $('btn-admin-logout')?.addEventListener('click', () => {
         state.setRole('member', 1);
         activeTab = 'Members';
+        try { sessionStorage.setItem('sumukha_active_tab', 'Members'); } catch (e) {}
         render();
         alert('Signed out of Administrator session. Returned to Member Directory.');
       });
     } else {
       adminTools.innerHTML = `
+        ${syncBadgeHtml}
         <button class="btn-sm btn-primary" id="btn-admin-signin" title="Administrator Sign In">🔐 Administrator Sign In</button>
       `;
       $('btn-admin-signin')?.addEventListener('click', () => openLoginModal('admin'));
     }
+
+    $('btn-cloud-sync')?.addEventListener('click', async () => {
+      const btn = $('btn-cloud-sync');
+      if (btn) btn.innerHTML = '🔄 Syncing...';
+      const res = await state.syncFromCloud();
+      if (res.success) {
+        alert('Database sync successful! All latest members, contributions, loans, and investments loaded from Supabase.');
+      } else {
+        alert('Database sync notice: ' + (res.error?.message || 'Could not connect to database.'));
+      }
+    });
   }
 }
 
@@ -137,6 +174,9 @@ function renderNavigation() {
   nav.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       activeTab = btn.getAttribute('data-tab');
+      try {
+        sessionStorage.setItem('sumukha_active_tab', activeTab);
+      } catch (e) {}
       render();
     });
   });
@@ -1127,8 +1167,7 @@ function attachViewListeners() {
     // Members handlers
     $('btn-add-member')?.addEventListener('click', openAddMemberModal);
     $('input-default-monthly')?.addEventListener('change', (e) => {
-      state.data.monthly = Number(e.target.value) || 10000;
-      state.save();
+      state.updateMonthlyDefault(Number(e.target.value) || 10000);
     });
     document.querySelectorAll('.btn-edit-member').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -1152,13 +1191,10 @@ function attachViewListeners() {
     // Investments handlers
     $('btn-add-inv')?.addEventListener('click', handleAddInvestment);
     document.querySelectorAll('.input-inv-val').forEach(input => {
-      input.addEventListener('change', (e) => {
+      input.addEventListener('change', async (e) => {
         const id = Number(e.target.dataset.id);
-        const inv = state.data.invs.find(x => x.id === id);
-        if (inv) {
-          inv.value = Number(e.target.value) || 0;
-          state.save();
-        }
+        const val = Number(e.target.value) || 0;
+        await state.updateInvestment(id, val);
       });
     });
     document.querySelectorAll('.btn-del-inv').forEach(b => {
@@ -1254,65 +1290,48 @@ function handleContribMemberChange() {
   }
 }
 
-function handleAddContrib() {
+async function handleAddContrib() {
   const mId = Number($('select-contrib-member').value);
   const month = $('input-contrib-month').value;
   const amt = Number($('input-contrib-amt').value);
 
   if (!amt || amt <= 0) return alert('Please enter a valid contribution amount.');
 
-  state.data.contribs.push({
-    id: Date.now() + Math.floor(Math.random() * 1000),
+  await state.addContribution({
     m: mId,
     month,
     amt,
     date: getTodayDate()
   });
 
-  state.save();
-  alert('Contribution recorded successfully!');
+  alert('Contribution recorded and saved to database!');
 }
 
-function handleBatchMonthContribs() {
+async function handleBatchMonthContribs() {
   const month = $('input-contrib-month').value || getCurrentMonth();
-  let count = 0;
+  const res = await state.addBatchMonthlyContributions(month);
 
-  state.data.members.forEach(m => {
-    const alreadyLogged = state.data.contribs.some(c => c.m === m.id && c.month === month);
-    if (!alreadyLogged) {
-      count++;
-      state.data.contribs.push({
-        id: Date.now() + count,
-        m: m.id,
-        month,
-        amt: getMemberCommitment(m, state.data.monthly),
-        date: getTodayDate()
-      });
-    }
-  });
-
-  if (count === 0) {
+  if (res.count === 0) {
     alert(`All members already have contributions recorded for ${month}.`);
   } else {
-    state.save();
-    alert(`Recorded monthly contributions for ${count} members for ${month}!`);
+    alert(`Recorded monthly contributions for ${res.count} members for ${month} and synced to database!`);
   }
 }
 
-function handleUndoContrib() {
+async function handleUndoContrib() {
   if (state.data.contribs.length === 0) return alert('No contributions to undo.');
-  const last = state.data.contribs.pop();
-  state.save();
-  alert(`Undid last entry for Member #${last.m} (${formatCurrency(last.amt)})`);
+  const last = await state.undoLastContribution();
+  if (last) {
+    alert(`Undid and deleted entry for Member #${last.m} (${formatCurrency(last.amt)}) from database.`);
+  }
 }
 
-function handleDeleteContrib(id) {
-  if (!confirm('Are you sure you want to delete this contribution entry?')) return;
-  state.data.contribs = state.data.contribs.filter(c => c.id !== Number(id));
-  state.save();
+async function handleDeleteContrib(id) {
+  if (!confirm('Are you sure you want to delete this contribution entry from database?')) return;
+  await state.deleteContribution(id);
 }
 
-function handleIssueLoan() {
+async function handleIssueLoan() {
   const mId = Number($('select-loan-member').value);
   const amt = Number($('input-loan-amt').value);
   const rate = Number($('input-loan-rate').value) || 1.0;
@@ -1329,22 +1348,19 @@ function handleIssueLoan() {
     }
   }
 
-  state.data.loans.push({
-    id: Date.now(),
+  await state.addLoan({
     m: mId,
     amt,
     rate,
     pct,
     n: tenure,
-    date,
-    reps: []
+    date
   });
 
-  state.save();
-  alert('Loan sanctioned successfully!');
+  alert('Loan sanctioned and recorded in database!');
 }
 
-function handleRecordLoanPayment(loanId) {
+async function handleRecordLoanPayment(loanId) {
   const input = $(`input-pay-${loanId}`);
   const amt = Number(input?.value);
   if (!amt || amt <= 0) return alert('Please enter repayment payment amount.');
@@ -1352,17 +1368,11 @@ function handleRecordLoanPayment(loanId) {
   const loan = state.data.loans.find(l => l.id === Number(loanId));
   if (!loan) return;
 
-  loan.reps = loan.reps || [];
-  loan.reps.push({
-    amt,
-    date: getTodayDate()
-  });
-
-  state.save();
-  alert(`Recorded payment of ${formatCurrency(amt)}!`);
+  await state.addLoanRepayment(loanId, amt, getTodayDate());
+  alert(`Recorded payment of ${formatCurrency(amt)} and saved to database!`);
 }
 
-function handleForecloseLoan(loanId) {
+async function handleForecloseLoan(loanId) {
   const loan = state.data.loans.find(l => l.id === Number(loanId));
   if (!loan) return;
 
@@ -1371,21 +1381,18 @@ function handleForecloseLoan(loanId) {
     return alert(`Foreclosure is locked for the first 2 months. Eligible starting: ${a.foreclosureEligibleDate}`);
   }
 
-  if (confirm(`Confirm foreclosure of loan for ${formatCurrency(a.foreclosureAmount)}? This will mark the loan cleared.`)) {
-    loan.reps.push({ amt: a.foreclosureAmount, date: getTodayDate() });
-    loan.closed = true;
-    state.save();
-    alert('Loan successfully foreclosed and settled!');
+  if (confirm(`Confirm foreclosure of loan for ${formatCurrency(a.foreclosureAmount)}? This will mark the loan cleared in database.`)) {
+    await state.forecloseLoan(loanId, a.foreclosureAmount);
+    alert('Loan successfully foreclosed and settled in database!');
   }
 }
 
-function handleDeleteLoan(loanId) {
-  if (!confirm('Are you sure you want to delete this loan record?')) return;
-  state.data.loans = state.data.loans.filter(l => l.id !== Number(loanId));
-  state.save();
+async function handleDeleteLoan(loanId) {
+  if (!confirm('Are you sure you want to delete this loan record from database?')) return;
+  await state.deleteLoan(loanId);
 }
 
-function handleAddInvestment() {
+async function handleAddInvestment() {
   const name = $('input-inv-name').value.trim();
   const type = $('select-inv-type').value;
   const cost = Number($('input-inv-cost').value);
@@ -1393,23 +1400,19 @@ function handleAddInvestment() {
 
   if (!name || !cost) return alert('Please specify investment name and amount.');
 
-  state.data.invs.push({
-    id: Date.now(),
+  await state.addInvestment({
     name,
     type,
     cost,
-    value: cost,
     date
   });
 
-  state.save();
-  alert('Investment recorded!');
+  alert('Investment recorded and saved to database!');
 }
 
-function handleDeleteInvestment(id) {
-  if (!confirm('Delete this investment entry?')) return;
-  state.data.invs = state.data.invs.filter(i => i.id !== Number(id));
-  state.save();
+async function handleDeleteInvestment(id) {
+  if (!confirm('Delete this investment entry from database?')) return;
+  await state.deleteInvestment(id);
 }
 
 /* ==========================================================================
@@ -1541,12 +1544,16 @@ function openLoginModal(defaultPortal = null) {
   });
 
   // Admin Sign-in
-  modal.querySelector('#btn-submit-admin').onclick = () => {
+  modal.querySelector('#btn-submit-admin').onclick = async () => {
     const adminId = Number(modal.querySelector('#modal-admin-select').value);
     const password = passInput.value;
-    const verify = state.verifyAdminLogin(adminId, password);
+    const submitBtn = modal.querySelector('#btn-submit-admin');
+    if (submitBtn) submitBtn.textContent = 'Verifying with database...';
+
+    const verify = await state.verifyAdminLoginAsync(adminId, password);
 
     if (!verify.success) {
+      if (submitBtn) submitBtn.textContent = 'Sign In to Administrator Console';
       return alert(verify.message);
     }
 
@@ -1734,7 +1741,6 @@ function openAddMemberModal() {
     if (!name) return alert('Please enter member full name.');
 
     const newMember = {
-      id: newId,
       name,
       email: email || `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
       phone: phone || '',
@@ -1742,25 +1748,10 @@ function openAddMemberModal() {
       is_admin
     };
 
-    state.data.members.push(newMember);
-    state.save();
+    const confirmBtn = modal.querySelector('#btn-confirm-add-mem');
+    if (confirmBtn) confirmBtn.textContent = 'Saving to Database...';
 
-    // Supabase sync
-    try {
-      const client = getSupabaseClient();
-      if (client) {
-        await client.from('members').insert([{
-          id: newId,
-          name: newMember.name,
-          email: newMember.email,
-          phone: newMember.phone,
-          monthly_commitment: newMember.monthly,
-          is_admin: newMember.is_admin
-        }]);
-      }
-    } catch (e) {
-      console.warn('Supabase add member notice:', e);
-    }
+    await state.addMember(newMember);
 
     modal.remove();
     alert(`Member "${name}" successfully registered and saved in database!`);
@@ -1835,13 +1826,26 @@ function openChangePasswordModal() {
     const next = modal.querySelector('#input-new-pass').value.trim();
     const confirm = modal.querySelector('#input-confirm-pass').value.trim();
 
-    if (curr !== targetAdmin.password) {
+    const saveBtn = modal.querySelector('#btn-save-new-pass');
+    if (saveBtn) saveBtn.textContent = 'Saving to Database...';
+
+    // Verify current password, allowing fallback to async database check
+    let isCurrValid = (curr === targetAdmin.password);
+    if (!isCurrValid) {
+      const verifyCheck = await state.verifyAdminLoginAsync(targetAdmin.id, curr);
+      isCurrValid = verifyCheck.success;
+    }
+
+    if (!isCurrValid) {
+      if (saveBtn) saveBtn.textContent = '💾 Save to Database';
       return alert(`Incorrect current password for Administrator ${targetAdmin.name}.`);
     }
     if (!next || next.length < 4) {
+      if (saveBtn) saveBtn.textContent = '💾 Save to Database';
       return alert('New password must be at least 4 characters long.');
     }
     if (next !== confirm) {
+      if (saveBtn) saveBtn.textContent = '💾 Save to Database';
       return alert('New password and confirmation password do not match.');
     }
 
@@ -1850,6 +1854,7 @@ function openChangePasswordModal() {
       modal.remove();
       alert(`Password for Administrator ${targetAdmin.name} successfully updated and saved in database.`);
     } else {
+      if (saveBtn) saveBtn.textContent = '💾 Save to Database';
       alert(res.message);
     }
   };
