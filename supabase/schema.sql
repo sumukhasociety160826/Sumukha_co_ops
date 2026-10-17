@@ -76,6 +76,18 @@ CREATE TABLE IF NOT EXISTS investments (
     last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 7. Audit Logs Table (Regulatory Financial Audit Trail)
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    actor_id INT,
+    actor_name TEXT NOT NULL DEFAULT 'Administrator',
+    action TEXT NOT NULL, -- e.g. 'CONTRIBUTION_RECORDED', 'LOAN_SANCTIONED', 'EMI_REPAID', 'LOAN_FORECLOSED'
+    target_type TEXT NOT NULL, -- 'contribution', 'loan', 'investment', 'member', 'auth'
+    target_id BIGINT,
+    details JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- =============================================================================
 -- Row Level Security (RLS) & Column Compatibility
 -- =============================================================================
@@ -89,6 +101,7 @@ ALTER TABLE contributions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE loans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE loan_repayments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Helper function: Check if current authenticated user is an Admin
 CREATE OR REPLACE FUNCTION is_admin()
@@ -155,6 +168,10 @@ CREATE POLICY "Allow public write on repayments" ON loan_repayments FOR ALL USIN
 -- Investments Policies
 CREATE POLICY "Allow public read on investments" ON investments FOR SELECT USING (true);
 CREATE POLICY "Allow public write on investments" ON investments FOR ALL USING (true) WITH CHECK (true);
+
+-- Audit Logs Policies (Transparent society audit trail)
+CREATE POLICY "Allow public read on audit_logs" ON audit_logs FOR SELECT USING (true);
+CREATE POLICY "Allow public write on audit_logs" ON audit_logs FOR ALL USING (true) WITH CHECK (true);
 
 -- =============================================================================
 -- Initial Data Migration: 13 Members & Historical Records

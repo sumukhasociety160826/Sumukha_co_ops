@@ -1,9 +1,52 @@
 /**
  * Sumukha Co-Op Society - State Management & Data Store
  * Supports Dual-Mode: Resilient Local Cache & Real-Time Supabase Cloud Database Sync
+ * Features:
+ *  1. Cryptographic Password Hashing & Verification (SHA-256 with Salt)
+ *  2. Regulatory Co-Op Financial Audit Trail & Integrity Logging
+ *  3. Real-Time Multi-Device Collaboration via Supabase Realtime Channels
+ *  4. Offline-First PWA Local Storage Synchronization
  */
 
 import { getSupabaseClient } from './config.js';
+
+// =============================================================================
+// CRYPTOGRAPHIC SECURITY: SHA-256 HASHING & SECURE PASSWORD VERIFICATION
+// =============================================================================
+
+export async function sha256Hash(text, salt = 'sumukha_coop_2026') {
+  const clean = String(text || '').trim();
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(`${salt}:${clean}`);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return `sha256$${salt}$${hashHex}`;
+    } catch (e) {
+      console.warn('Subtle crypto hash error, using fallback:', e);
+    }
+  }
+  return clean;
+}
+
+export async function verifyPasswordHash(plainPassword, storedPassword) {
+  if (!storedPassword) return false;
+  const cleanInput = String(plainPassword || '').trim();
+  const cleanStored = String(storedPassword || '').trim();
+
+  // If already stored as sha256$<salt>$<hash>
+  if (cleanStored.startsWith('sha256$')) {
+    const parts = cleanStored.split('$');
+    const salt = parts[1] || 'sumukha_coop_2026';
+    const computed = await sha256Hash(cleanInput, salt);
+    return computed === cleanStored;
+  }
+
+  // Legacy plaintext match
+  return cleanInput === cleanStored;
+}
 
 export const INITIAL_SNAPSHOT = {
   monthly: 10000,
@@ -87,14 +130,19 @@ export const INITIAL_SNAPSHOT = {
 
 const STORAGE_KEY = 'sumukha_society_v4';
 const SESSION_KEY = 'sumukha_session_v4';
+const AUDIT_STORAGE_KEY = 'sumukha_audit_logs_v4';
 
 export class AppState {
   constructor() {
     this.data = this.loadData();
     this.session = this.loadSession();
+    this.auditLogs = this.loadAuditLogs();
     this.listeners = [];
     this.cloudStatus = 'idle'; // 'idle' | 'syncing' | 'synced' | 'error' | 'offline'
     this.lastSyncedAt = null;
+    this.realtimeChannel = null;
+    this.isRealtimeActive = false;
+    this.syncDebounceTimer = null;
   }
 
   loadData() {
@@ -146,7 +194,6 @@ export class AppState {
 
   loadSession() {
     try {
-      // Check localStorage first so refresh across tabs/windows preserves admin role
       const stored = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -161,11 +208,22 @@ export class AppState {
     };
   }
 
+  loadAuditLogs() {
+    try {
+      const stored = localStorage.getItem(AUDIT_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  }
+
   save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
     } catch (e) {
-      console.error('Storage quota exceeded or error saving:', e);
+      console.error('Storage quota exceeded or error saving data:', e);
     }
     this.notify();
   }
@@ -174,6 +232,13 @@ export class AppState {
     try {
       localStorage.setItem(SESSION_KEY, JSON.stringify(this.session));
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(this.session));
+    } catch (e) {}
+    this.notify();
+  }
+
+  saveAuditLogs() {
+    try {
+      localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(this.auditLogs.slice(0, 500)));
     } catch (e) {}
     this.notify();
   }
@@ -187,7 +252,89 @@ export class AppState {
 
   notify() {
     for (const listener of this.listeners) {
-      listener(this.data, this.session);
+      try {
+        listener(this.data, this.session);
+      } catch (e) {
+        console.error('State listener notification error:', e);
+      }
+    }
+  }
+
+  // =========================================================================
+  // FINANCIAL AUDIT TRAIL RECORDING (CO-OP REGULATORY INTEGRITY)
+  // =========================================================================
+
+  async recordAuditLog({ action, targetType, targetId = null, details = {} }) {
+    const actor = this.getActiveAdmin() || { id: this.session.adminId || null, name: this.session.adminName || 'Admin' };
+    const logEntry = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      timestamp: new Date().toISOString(),
+      actor_id: actor.id,
+      actor_name: actor.name,
+      action,
+      target_type: targetType,
+      target_id: targetId,
+      details: details || {}
+    };
+
+    // Prepend to local memory & persist to localStorage
+    this.auditLogs.unshift(logEntry);
+    this.saveAuditLogs();
+
+    // Persist to Supabase audit_logs table
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('audit_logs').insert([{
+          id: logEntry.id,
+          actor_id: logEntry.actor_id,
+          actor_name: logEntry.actor_name,
+          action: logEntry.action,
+          target_type: logEntry.target_type,
+          target_id: logEntry.target_id,
+          details: logEntry.details,
+          created_at: logEntry.timestamp
+        }]);
+      } catch (err) {
+        // Non-fatal if table not yet run in SQL editor
+        console.warn('Supabase audit log insert note:', err);
+      }
+    }
+
+    return logEntry;
+  }
+
+  getAuditLogs() {
+    return this.auditLogs || [];
+  }
+
+  // =========================================================================
+  // SUPABASE REALTIME MULTI-DEVICE SYNC
+  // =========================================================================
+
+  initRealtimeSync() {
+    if (this.realtimeChannel) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+      this.realtimeChannel = client
+        .channel('public:society_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+          console.log('[Realtime] Live DB update received:', payload.eventType, payload.table);
+          if (this.syncDebounceTimer) clearTimeout(this.syncDebounceTimer);
+          this.syncDebounceTimer = setTimeout(() => {
+            this.syncFromCloud(true); // background silent update
+          }, 400);
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            this.isRealtimeActive = true;
+            this.notify();
+          }
+        });
+    } catch (e) {
+      console.warn('Realtime subscription setup notice:', e);
     }
   }
 
@@ -195,10 +342,7 @@ export class AppState {
   // SUPABASE FULL CLOUD DATABASE SYNC
   // =========================================================================
 
-  /**
-   * Fetches latest state from Supabase database for all 5 entities and updates local cache.
-   */
-  async syncFromCloud() {
+  async syncFromCloud(isBackground = false) {
     const client = getSupabaseClient();
     if (!client) {
       this.cloudStatus = 'offline';
@@ -206,16 +350,19 @@ export class AppState {
       return { success: false, message: 'Supabase client not available' };
     }
 
-    this.cloudStatus = 'syncing';
-    this.notify();
+    if (!isBackground) {
+      this.cloudStatus = 'syncing';
+      this.notify();
+    }
 
     try {
-      const [membersRes, contribsRes, loansRes, repsRes, invsRes] = await Promise.all([
+      const [membersRes, contribsRes, loansRes, repsRes, invsRes, auditRes] = await Promise.all([
         client.from('members').select('*').order('id', { ascending: true }),
         client.from('contributions').select('*').order('id', { ascending: true }),
         client.from('loans').select('*').order('id', { ascending: true }),
         client.from('loan_repayments').select('*').order('id', { ascending: true }),
-        client.from('investments').select('*').order('id', { ascending: true })
+        client.from('investments').select('*').order('id', { ascending: true }),
+        client.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200).catch(() => ({ data: null }))
       ]);
 
       if (membersRes.error) throw membersRes.error;
@@ -296,6 +443,22 @@ export class AppState {
         date: i.purchase_date
       }));
 
+      // Update Audit Logs if table exists in Supabase
+      if (auditRes && Array.isArray(auditRes.data) && auditRes.data.length > 0) {
+        const cloudLogs = auditRes.data.map(a => ({
+          id: Number(a.id),
+          timestamp: a.created_at,
+          actor_id: a.actor_id,
+          actor_name: a.actor_name,
+          action: a.action,
+          target_type: a.target_type,
+          target_id: a.target_id,
+          details: a.details || {}
+        }));
+        this.auditLogs = cloudLogs;
+        this.saveAuditLogs();
+      }
+
       const monthlyDefault = Number(localStorage.getItem('sumukha_monthly_default')) || this.data.monthly || 10000;
 
       this.data = {
@@ -308,7 +471,11 @@ export class AppState {
 
       this.cloudStatus = 'synced';
       this.lastSyncedAt = new Date();
-      this.save(); // Cache freshly synced state in localStorage
+      this.save();
+
+      // Ensure Realtime channel is initialized
+      this.initRealtimeSync();
+
       return { success: true };
     } catch (e) {
       console.error('Supabase cloud synchronization error:', e);
@@ -319,7 +486,7 @@ export class AppState {
   }
 
   // =========================================================================
-  // SESSION & AUTHENTICATION
+  // SESSION & AUTHENTICATION WITH HASH VERIFICATION
   // =========================================================================
 
   setRole(role, memberId = null, adminInfo = null) {
@@ -356,7 +523,11 @@ export class AppState {
     return this.data.members.find(m => m.id === Number(this.session.memberId)) || null;
   }
 
-  verifyAdminLogin(identifier, password) {
+  async verifyAdminLogin(identifier, password) {
+    return this.verifyAdminLoginAsync(identifier, password);
+  }
+
+  async verifyAdminLoginAsync(identifier, password) {
     const cleanId = String(identifier || '').trim().toLowerCase();
     const cleanPass = String(password || '').trim();
 
@@ -372,23 +543,28 @@ export class AppState {
       return { success: false, message: 'Admin account not found. Only authorized admins (Sagar or Naveen) can log in as Admin.' };
     }
 
-    if (admin.password !== cleanPass) {
-      return { success: false, message: 'Incorrect password for Admin ' + admin.name + '.' };
+    const isValid = await verifyPasswordHash(cleanPass, admin.password);
+
+    if (isValid) {
+      // If password was stored as plaintext, seamlessly upgrade to salted sha256 hash
+      if (admin.password && !admin.password.startsWith('sha256$')) {
+        try {
+          const hashed = await sha256Hash(cleanPass);
+          admin.password = hashed;
+          this.save();
+          const client = getSupabaseClient();
+          if (client) {
+            await client.from('members').update({ password: hashed }).eq('id', admin.id);
+          }
+        } catch (e) {}
+      }
+      return { success: true, admin };
     }
 
-    return { success: true, admin };
-  }
-
-  async verifyAdminLoginAsync(identifier, password) {
-    const localRes = this.verifyAdminLogin(identifier, password);
-    if (localRes.success) return localRes;
-
-    // Fallback directly to Supabase in case local cache is not yet refreshed
+    // Direct cloud fallback in case local cache is stale
     const client = getSupabaseClient();
     if (client) {
       try {
-        const cleanId = String(identifier || '').trim().toLowerCase();
-        const cleanPass = String(password || '').trim();
         const { data } = await client.from('members').select('*').eq('is_admin', true);
         if (data && Array.isArray(data)) {
           const cloudAdmin = data.find(m => {
@@ -398,11 +574,14 @@ export class AppState {
             return matchId || matchEmail || matchName;
           });
 
-          if (cloudAdmin && cloudAdmin.password === cleanPass) {
-            const localAdmin = this.data.members.find(m => m.id === cloudAdmin.id);
-            if (localAdmin) localAdmin.password = cloudAdmin.password;
-            this.save();
-            return { success: true, admin: localAdmin || cloudAdmin };
+          if (cloudAdmin) {
+            const cloudValid = await verifyPasswordHash(cleanPass, cloudAdmin.password);
+            if (cloudValid) {
+              const localAdmin = this.data.members.find(m => m.id === cloudAdmin.id);
+              if (localAdmin) localAdmin.password = cloudAdmin.password;
+              this.save();
+              return { success: true, admin: localAdmin || cloudAdmin };
+            }
           }
         }
       } catch (e) {
@@ -410,7 +589,7 @@ export class AppState {
       }
     }
 
-    return localRes;
+    return { success: false, message: 'Incorrect password for Admin ' + admin.name + '.' };
   }
 
   async updateAdminPassword(adminId, newPassword) {
@@ -423,17 +602,18 @@ export class AppState {
       return { success: false, message: 'Password must be at least 4 characters long.' };
     }
 
-    // Optimistically update memory and storage
-    admin.password = trimmed;
+    // Securely hash password with SHA-256 and salt
+    const hashedPassword = await sha256Hash(trimmed);
+    admin.password = hashedPassword;
     this.save();
 
-    // Persist directly to Supabase PostgreSQL database
+    // Persist to Supabase
     const client = getSupabaseClient();
     if (client) {
       try {
         const { error } = await client
           .from('members')
-          .update({ password: trimmed })
+          .update({ password: hashedPassword })
           .eq('id', id);
         if (error) throw error;
       } catch (e) {
@@ -442,19 +622,26 @@ export class AppState {
       }
     }
 
-    return { success: true, message: `Password for ${admin.name} updated successfully and saved in database!` };
+    await this.recordAuditLog({
+      action: 'ADMIN_PASSWORD_CHANGED',
+      targetType: 'auth',
+      targetId: id,
+      details: { adminName: admin.name }
+    });
+
+    return { success: true, message: `Password for ${admin.name} updated securely with encryption and saved in database!` };
   }
 
   // =========================================================================
-  // CONTRIBUTIONS OPERATIONS WITH CLOUD SYNC
+  // CONTRIBUTIONS OPERATIONS WITH CLOUD SYNC & AUDIT TRAIL
   // =========================================================================
 
   async addContribution({ m, month, amt, date, notes }) {
     const numMemberId = Number(m);
     const numAmt = Number(amt);
     const contribDate = date || new Date().toISOString().slice(0, 10);
+    const member = this.data.members.find(x => x.id === numMemberId);
 
-    // Look for existing contribution for this member & month
     const existingIndex = this.data.contribs.findIndex(c => c.m === numMemberId && c.month === month);
     let contribItem;
 
@@ -480,7 +667,6 @@ export class AppState {
 
     this.save();
 
-    // Sync to Supabase
     const client = getSupabaseClient();
     if (client) {
       try {
@@ -497,6 +683,18 @@ export class AppState {
         console.error('Supabase addContribution sync error:', err);
       }
     }
+
+    await this.recordAuditLog({
+      action: 'CONTRIBUTION_RECORDED',
+      targetType: 'contribution',
+      targetId: contribItem.id,
+      details: {
+        memberName: member ? member.name : `Member #${numMemberId}`,
+        month,
+        amount: numAmt,
+        date: contribDate
+      }
+    });
 
     return contribItem;
   }
@@ -545,11 +743,23 @@ export class AppState {
       }
     }
 
+    await this.recordAuditLog({
+      action: 'BATCH_CONTRIBUTIONS_RECORDED',
+      targetType: 'contribution',
+      targetId: null,
+      details: {
+        month: targetMonth,
+        count: newItems.length,
+        totalAmount: newItems.reduce((sum, c) => sum + c.amt, 0)
+      }
+    });
+
     return { count: newItems.length };
   }
 
   async deleteContribution(id) {
     const numId = Number(id);
+    const target = this.data.contribs.find(c => c.id === numId);
     this.data.contribs = this.data.contribs.filter(c => c.id !== numId);
     this.save();
 
@@ -562,6 +772,13 @@ export class AppState {
         console.error('Supabase deleteContribution sync error:', err);
       }
     }
+
+    await this.recordAuditLog({
+      action: 'CONTRIBUTION_DELETED',
+      targetType: 'contribution',
+      targetId: numId,
+      details: target ? { memberId: target.m, month: target.month, amount: target.amt } : {}
+    });
   }
 
   async undoLastContribution() {
@@ -577,11 +794,21 @@ export class AppState {
         console.error('Supabase undo contribution sync error:', err);
       }
     }
+
+    if (last) {
+      await this.recordAuditLog({
+        action: 'CONTRIBUTION_UNDONE',
+        targetType: 'contribution',
+        targetId: last.id,
+        details: { memberId: last.m, month: last.month, amount: last.amt }
+      });
+    }
+
     return last;
   }
 
   // =========================================================================
-  // LOANS & REPAYMENTS OPERATIONS WITH CLOUD SYNC
+  // LOANS & REPAYMENTS OPERATIONS WITH CLOUD SYNC & AUDIT TRAIL
   // =========================================================================
 
   async addLoan({ m, amt, rate, pct, n, date }) {
@@ -598,6 +825,8 @@ export class AppState {
       foreclosedDate: null,
       reps: []
     };
+
+    const borrower = this.data.members.find(x => x.id === loan.m);
 
     this.data.loans.push(loan);
     this.save();
@@ -620,6 +849,19 @@ export class AppState {
         console.error('Supabase addLoan sync error:', err);
       }
     }
+
+    await this.recordAuditLog({
+      action: 'LOAN_SANCTIONED',
+      targetType: 'loan',
+      targetId: loan.id,
+      details: {
+        borrowerName: borrower ? borrower.name : `Member #${loan.m}`,
+        principalAmount: loan.amt,
+        interestRatePct: loan.rate,
+        tenureMonths: loan.n,
+        issueDate: loan.date
+      }
+    });
 
     return loan;
   }
@@ -656,6 +898,13 @@ export class AppState {
         console.error('Supabase addLoanRepayment sync error:', err);
       }
     }
+
+    await this.recordAuditLog({
+      action: 'LOAN_REPAYMENT_RECORDED',
+      targetType: 'loan_repayment',
+      targetId: rep.id,
+      details: { loanId: numLoanId, amount: rep.amt, date: rep.date }
+    });
 
     return rep;
   }
@@ -697,6 +946,13 @@ export class AppState {
       }
     }
 
+    await this.recordAuditLog({
+      action: 'LOAN_FORECLOSED',
+      targetType: 'loan',
+      targetId: numLoanId,
+      details: { settlementAmount: foreclosureAmount, foreclosedDate: today }
+    });
+
     return true;
   }
 
@@ -711,13 +967,20 @@ export class AppState {
         await client.from('loan_repayments').delete().eq('loan_id', numLoanId);
         await client.from('loans').delete().eq('id', numLoanId);
       } catch (err) {
-        console.error('Supabase deleteLoan sync error:', err);
+        console.error('Supabase deleteLoan error:', err);
       }
     }
+
+    await this.recordAuditLog({
+      action: 'LOAN_RECORD_DELETED',
+      targetType: 'loan',
+      targetId: numLoanId,
+      details: {}
+    });
   }
 
   // =========================================================================
-  // INVESTMENTS OPERATIONS WITH CLOUD SYNC
+  // INVESTMENTS OPERATIONS WITH CLOUD SYNC & AUDIT TRAIL
   // =========================================================================
 
   async addInvestment({ name, type, cost, date }) {
@@ -752,6 +1015,13 @@ export class AppState {
       }
     }
 
+    await this.recordAuditLog({
+      action: 'INVESTMENT_RECORDED',
+      targetType: 'investment',
+      targetId: inv.id,
+      details: { name: inv.name, type: inv.type, cost: inv.cost }
+    });
+
     return inv;
   }
 
@@ -760,6 +1030,7 @@ export class AppState {
     const inv = this.data.invs.find(i => i.id === numId);
     if (!inv) return;
 
+    const oldVal = inv.val;
     inv.val = Number(currentVal);
     inv.value = Number(currentVal);
     this.save();
@@ -776,10 +1047,18 @@ export class AppState {
         console.error('Supabase updateInvestment sync error:', err);
       }
     }
+
+    await this.recordAuditLog({
+      action: 'INVESTMENT_VALUATION_UPDATED',
+      targetType: 'investment',
+      targetId: numId,
+      details: { investmentName: inv.name, previousValue: oldVal, updatedValue: inv.val }
+    });
   }
 
   async deleteInvestment(id) {
     const numId = Number(id);
+    const inv = this.data.invs.find(i => i.id === numId);
     this.data.invs = this.data.invs.filter(i => i.id !== numId);
     this.save();
 
@@ -792,10 +1071,17 @@ export class AppState {
         console.error('Supabase deleteInvestment sync error:', err);
       }
     }
+
+    await this.recordAuditLog({
+      action: 'INVESTMENT_DELETED',
+      targetType: 'investment',
+      targetId: numId,
+      details: inv ? { name: inv.name, cost: inv.cost } : {}
+    });
   }
 
   // =========================================================================
-  // MEMBERS MANAGEMENT WITH CLOUD SYNC
+  // MEMBERS MANAGEMENT WITH CLOUD SYNC & AUDIT TRAIL
   // =========================================================================
 
   async addMember(member) {
@@ -834,6 +1120,13 @@ export class AppState {
       }
     }
 
+    await this.recordAuditLog({
+      action: 'MEMBER_REGISTERED',
+      targetType: 'member',
+      targetId: newId,
+      details: { name: newMember.name, monthly: newMember.monthly, isAdmin: newMember.is_admin }
+    });
+
     return newMember;
   }
 
@@ -855,7 +1148,6 @@ export class AppState {
 
     this.save();
 
-    // Sync updated member to Supabase PostgreSQL database
     const client = getSupabaseClient();
     if (client) {
       try {
@@ -878,6 +1170,13 @@ export class AppState {
       }
     }
 
+    await this.recordAuditLog({
+      action: 'MEMBER_DETAILS_UPDATED',
+      targetType: 'member',
+      targetId: id,
+      details: { name: member.name, updatedFields }
+    });
+
     return { success: true, message: `Details for "${member.name}" successfully updated and saved in database.` };
   }
 
@@ -890,7 +1189,7 @@ export class AppState {
   }
 
   // =========================================================================
-  // BACKUP & RESTORE WITH CLOUD SYNC
+  // BACKUP & RESTORE WITH CLOUD SYNC & AUDIT TRAIL
   // =========================================================================
 
   async restoreBackup(backupData) {
@@ -901,7 +1200,6 @@ export class AppState {
       throw new Error('Invalid backup file: missing or empty members array.');
     }
 
-    // Ensure Sagar and Naveen retain admin status if present
     const sagar = backupData.members.find(m => m.id === 10 || (m.name && m.name.toLowerCase() === 'sagar'));
     if (sagar) {
       sagar.is_admin = true;
@@ -923,11 +1221,9 @@ export class AppState {
 
     this.save();
 
-    // Sync all restored entities to Supabase
     const client = getSupabaseClient();
     if (client) {
       try {
-        // Members
         for (const m of this.data.members) {
           await client.from('members').upsert({
             id: m.id,
@@ -940,7 +1236,6 @@ export class AppState {
           });
         }
 
-        // Contributions
         if (this.data.contribs.length > 0) {
           const cPayload = this.data.contribs.map(c => ({
             id: c.id,
@@ -953,7 +1248,6 @@ export class AppState {
           await client.from('contributions').upsert(cPayload, { onConflict: 'member_id,month' });
         }
 
-        // Loans & Repayments
         for (const l of this.data.loans) {
           await client.from('loans').upsert({
             id: l.id,
@@ -980,7 +1274,6 @@ export class AppState {
           }
         }
 
-        // Investments
         for (const i of this.data.invs) {
           await client.from('investments').upsert({
             id: i.id,
@@ -995,6 +1288,18 @@ export class AppState {
         console.warn('Supabase restore sync note:', e);
       }
     }
+
+    await this.recordAuditLog({
+      action: 'DATABASE_BACKUP_RESTORED',
+      targetType: 'system',
+      targetId: null,
+      details: {
+        membersCount: this.data.members.length,
+        contribsCount: this.data.contribs.length,
+        loansCount: this.data.loans.length,
+        invsCount: this.data.invs.length
+      }
+    });
 
     return {
       membersCount: this.data.members.length,

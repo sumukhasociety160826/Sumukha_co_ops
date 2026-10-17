@@ -105,24 +105,30 @@ function renderHeader() {
       headerActions.insertBefore(adminTools, $('user-badge'));
     }
 
-    // Dynamic Database Sync Badge
+    // Dynamic Database Sync Badge with Realtime Multi-Device Indicator
     let syncBadgeHtml = '';
     if (state.cloudStatus === 'syncing') {
       syncBadgeHtml = `<button class="btn-sm" id="btn-cloud-sync" title="Syncing data with Supabase PostgreSQL..." style="border-color: var(--gold-border); background: var(--gold-tint); color: var(--gold-dark); cursor: pointer;"><span style="display:inline-block; animation: spin 1s infinite linear;">🔄</span> Syncing DB</button>`;
     } else if (state.cloudStatus === 'error') {
       syncBadgeHtml = `<button class="btn-sm" id="btn-cloud-sync" title="Database sync issue detected. Click to retry sync." style="border-color: rgba(220,38,38,0.4); background: var(--danger-bg); color: var(--danger); cursor: pointer;">⚠️ DB Offline (Retry)</button>`;
     } else {
-      syncBadgeHtml = `<button class="btn-sm" id="btn-cloud-sync" title="Supabase Database Synced. Click to refresh latest records." style="border-color: rgba(37,99,235,0.35); background: var(--navy-light); color: var(--navy-blue); cursor: pointer;">🟢 DB Synced</button>`;
+      const rtText = state.isRealtimeActive ? '🟢 Live Realtime Sync' : '🟢 DB Synced';
+      syncBadgeHtml = `<button class="btn-sm" id="btn-cloud-sync" title="${state.isRealtimeActive ? 'Realtime Multi-Device Sync Active. Click to force re-fetch.' : 'Database Synced. Click to refresh.'}" style="border-color: rgba(37,99,235,0.35); background: var(--navy-light); color: var(--navy-blue); cursor: pointer;">${rtText}</button>`;
     }
+
+    const pwaBtnHtml = `<button class="btn-sm btn-gold" id="btn-pwa-install" title="Install Sumukha Co-Op Mobile App" style="display: ${window.deferredPWAInstallPrompt ? 'inline-flex' : 'none'}; font-weight: bold;">📲 Install App</button>`;
 
     if (isAdmin) {
       adminTools.innerHTML = `
+        ${pwaBtnHtml}
         ${syncBadgeHtml}
         <button class="btn-sm btn-gold" id="btn-change-pass" title="Change Admin Password">🔑 Password</button>
+        <button class="btn-sm btn-gold" id="btn-view-audit" title="View Regulatory Financial Audit Trail">📜 Audit Trail</button>
         <button class="btn-sm btn-gold" id="btn-backup-restore" title="Backup & Disaster Recovery">💾 Backup & Restore</button>
         <button class="btn-sm btn-danger" id="btn-admin-logout" title="Exit Administrator Mode">🚪 Sign Out</button>
       `;
       $('btn-change-pass')?.addEventListener('click', openChangePasswordModal);
+      $('btn-view-audit')?.addEventListener('click', openAuditTrailModal);
       $('btn-backup-restore')?.addEventListener('click', openBackupRestoreModal);
       $('btn-admin-logout')?.addEventListener('click', () => {
         state.setRole('member', 1);
@@ -133,11 +139,26 @@ function renderHeader() {
       });
     } else {
       adminTools.innerHTML = `
+        ${pwaBtnHtml}
         ${syncBadgeHtml}
         <button class="btn-sm btn-primary" id="btn-admin-signin" title="Administrator Sign In">🔐 Administrator Sign In</button>
       `;
       $('btn-admin-signin')?.addEventListener('click', () => openLoginModal('admin'));
     }
+
+    $('btn-pwa-install')?.addEventListener('click', async () => {
+      if (window.deferredPWAInstallPrompt) {
+        window.deferredPWAInstallPrompt.prompt();
+        const { outcome } = await window.deferredPWAInstallPrompt.userChoice;
+        if (outcome === 'accepted') {
+          const btn = $('btn-pwa-install');
+          if (btn) btn.style.display = 'none';
+          window.deferredPWAInstallPrompt = null;
+        }
+      } else {
+        alert('To install on mobile, tap your browser menu (⋮ or Share) and select "Add to Home Screen" or "Install App".');
+      }
+    });
 
     $('btn-cloud-sync')?.addEventListener('click', async () => {
       const btn = $('btn-cloud-sync');
@@ -2301,6 +2322,137 @@ function openBackupRestoreModal() {
       restoreBtn.disabled = false;
       restoreBtn.textContent = '🔄 Restore Database from This File';
     }
+  };
+}
+
+function openAuditTrailModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  const logs = state.getAuditLogs();
+
+  function renderRows(filteredLogs) {
+    if (filteredLogs.length === 0) {
+      return `<tr><td colspan="4" style="text-align: center; padding: 24px; color: var(--text-muted);">No audit records found matching criteria.</td></tr>`;
+    }
+    return filteredLogs.map(l => {
+      const dt = new Date(l.timestamp);
+      const timeStr = isNaN(dt.getTime()) ? l.timestamp : dt.toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'medium' });
+      const detailsStr = Object.entries(l.details || {})
+        .map(([k, v]) => `<strong>${escapeHTML(k)}:</strong> ${escapeHTML(typeof v === 'object' ? JSON.stringify(v) : String(v))}`)
+        .join(' · ');
+
+      let badgeStyle = 'background: rgba(37,99,235,0.1); color: var(--navy-blue);';
+      if (l.action.includes('RECORD') || l.action.includes('SANCTION')) {
+        badgeStyle = 'background: rgba(37,99,235,0.15); color: #1d4ed8;';
+      } else if (l.action.includes('FORECLOSE') || l.action.includes('PASSWORD')) {
+        badgeStyle = 'background: var(--gold-tint); color: var(--gold-dark);';
+      } else if (l.action.includes('DELETE') || l.action.includes('UNDONE')) {
+        badgeStyle = 'background: var(--danger-bg); color: var(--danger);';
+      }
+
+      return `
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="white-space: nowrap; font-size: 11.5px; color: var(--text-muted); padding: 8px 10px;">${escapeHTML(timeStr)}</td>
+          <td style="font-weight: 600; font-size: 12px; padding: 8px 10px;">👤 ${escapeHTML(l.actor_name)}</td>
+          <td style="padding: 8px 10px;"><span class="badge" style="${badgeStyle} font-size: 10.5px; padding: 2px 7px; border-radius: 4px; font-weight: bold;">${escapeHTML(l.action)}</span></td>
+          <td style="font-size: 11.5px; color: var(--text-main); padding: 8px 10px;">${detailsStr || '—'}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 880px; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <span>📜</span> Regulatory Financial Audit Trail
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            Sumukha Co-Operative Society · Chronological ledger of all financial and admin events (${logs.length} logged events)
+          </div>
+        </div>
+        <button class="btn-sm" id="btn-close-audit-modal">✕</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 8px; flex: 1; min-width: 260px;">
+          <input type="text" id="input-audit-search" placeholder="Search by administrator, action or details..." style="padding: 6px 10px; font-size: 12px; flex: 1;">
+          <select id="select-audit-filter" style="padding: 6px 10px; font-size: 12px;">
+            <option value="ALL">All Actions</option>
+            <option value="CONTRIBUTION">Contributions</option>
+            <option value="LOAN">Loans & EMI</option>
+            <option value="INVESTMENT">Investments</option>
+            <option value="MEMBER">Members</option>
+            <option value="PASSWORD">Security & Auth</option>
+          </select>
+        </div>
+        <button class="btn-sm btn-gold" id="btn-export-audit-csv" title="Export Regulatory CSV Ledger">📥 Export Audit CSV</button>
+      </div>
+
+      <div class="table-frame" style="flex: 1; overflow-y: auto; max-height: 52vh; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <thead>
+            <tr style="position: sticky; top: 0; background: var(--surface-subtle); z-index: 2; border-bottom: 1px solid var(--border);">
+              <th style="padding: 8px 10px; text-align: left;">Timestamp (IST)</th>
+              <th style="padding: 8px 10px; text-align: left;">Administrator</th>
+              <th style="padding: 8px 10px; text-align: left;">Action</th>
+              <th style="padding: 8px 10px; text-align: left;">Audit Details</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body">
+            ${renderRows(logs)}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer" style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 11.5px; color: var(--text-muted);">
+          Protected ledger records for cooperative society compliance & dispute prevention.
+        </span>
+        <button class="btn-primary" id="btn-done-audit">Close</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelector('#btn-close-audit-modal').onclick = () => modal.remove();
+  modal.querySelector('#btn-done-audit').onclick = () => modal.remove();
+
+  const tbody = modal.querySelector('#audit-table-body');
+  const searchInput = modal.querySelector('#input-audit-search');
+  const filterSelect = modal.querySelector('#select-audit-filter');
+
+  function updateTable() {
+    const q = searchInput.value.toLowerCase().trim();
+    const cat = filterSelect.value;
+    const filtered = logs.filter(l => {
+      const matchCat = cat === 'ALL' || l.action.includes(cat);
+      const text = `${l.actor_name} ${l.action} ${JSON.stringify(l.details)}`.toLowerCase();
+      const matchQ = !q || text.includes(q);
+      return matchCat && matchQ;
+    });
+    tbody.innerHTML = renderRows(filtered);
+  }
+
+  searchInput.addEventListener('input', updateTable);
+  filterSelect.addEventListener('change', updateTable);
+
+  modal.querySelector('#btn-export-audit-csv').onclick = () => {
+    let csv = 'Timestamp,Administrator,Action,Details\n';
+    logs.forEach(l => {
+      const t = `"${l.timestamp}"`;
+      const a = `"${l.actor_name}"`;
+      const act = `"${l.action}"`;
+      const d = `"${JSON.stringify(l.details).replace(/"/g, '""')}"`;
+      csv += `${t},${a},${act},${d}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Sumukha_CoOp_Audit_Trail_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
   };
 }
 

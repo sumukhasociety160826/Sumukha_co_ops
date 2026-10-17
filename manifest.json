@@ -1,0 +1,26 @@
+{
+  "name": "Sumukha Co-Operative Society",
+  "short_name": "Sumukha Co-Op",
+  "description": "Production-ready cooperative micro-financing platform for Sumukha Co-Op Society with Member and Admin portals.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070e1b",
+  "theme_color": "#0f172a",
+  "categories": ["finance", "business"],
+  "icons": [
+    {
+      "src": "/src/resources/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/src/resources/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

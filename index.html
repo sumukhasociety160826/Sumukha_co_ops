@@ -7,6 +7,12 @@
   <meta name="description" content="Production-ready cooperative micro-financing platform for Sumukha Co-Op Society with Member and Admin portals.">
   <link rel="stylesheet" href="./src/css/style.css">
   <link rel="icon" type="image/jpeg" href="./src/resources/logo.jpg">
+  <link rel="apple-touch-icon" href="./src/resources/logo.jpg">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sumukha Co-Op">
 </head>
 <body class="role-member">
   <div class="app-wrapper">
@@ -89,6 +95,25 @@
     import { initApp } from './src/js/app.js';
     window.addEventListener('DOMContentLoaded', () => {
       initApp();
+      
+      // Register Progressive Web App (PWA) Service Worker
+      if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          console.log('[PWA] Service worker registered successfully:', reg.scope);
+        }).catch((err) => {
+          console.warn('[PWA] Service worker registration notice:', err);
+        });
+      }
+    });
+
+    // PWA Install Prompt Capture
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.deferredPWAInstallPrompt = e;
+      const installBtn = document.getElementById('btn-pwa-install');
+      if (installBtn) {
+        installBtn.style.display = 'inline-flex';
+      }
     });
   </script>
 </body>
