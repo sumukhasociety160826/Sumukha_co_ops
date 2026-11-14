@@ -3,7 +3,7 @@
  * Generates print-ready formal PDF statements for any selected month or individual member.
  */
 
-import { formatCurrency, calculateTotals, calculateLoanAnalytics, getMemberCommitment } from './calculations.js';
+import { formatCurrency, calculateTotals, calculateLoanAnalytics, getMemberCommitment, calculateExpensesSummary } from './calculations.js';
 
 export function exportMonthlyStatementPDF(targetMonth, data) {
   const totals = calculateTotals(data);
@@ -295,6 +295,181 @@ export function exportMemberStatementPDF(memberId, data) {
   `;
 
   openPrintWindow(printableHTML, `Member_Statement_${member.name}`);
+}
+
+export function exportExpensesStatementPDF(data) {
+  const summary = calculateExpensesSummary(data);
+  const expenses = data.expenses || [];
+  const generatedDate = new Date().toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const printableHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Friends Expense Splitter - Financial Statement</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111; margin: 0; padding: 24px; font-size: 13px; line-height: 1.4; }
+        .statement-header { border-bottom: 2px solid #0284c7; padding-bottom: 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .brand-title { font-size: 22px; font-weight: 800; color: #0369a1; margin: 0; }
+        .brand-sub { font-size: 13px; color: #555; margin-top: 2px; }
+        .meta-box { text-align: right; font-size: 12px; color: #444; }
+        .meta-box strong { font-size: 14px; color: #111; }
+        .kpi-row { display: flex; gap: 12px; margin-bottom: 20px; }
+        .kpi-box { flex: 1; border: 1px solid #ddd; border-top: 3px solid #0284c7; border-radius: 6px; padding: 10px 14px; background: #fafafa; }
+        .kpi-lbl { font-size: 11px; text-transform: uppercase; color: #666; font-weight: 600; }
+        .kpi-val { font-size: 18px; font-weight: 750; color: #111; margin-top: 2px; }
+        h3 { font-size: 15px; margin: 20px 0 8px; color: #0369a1; border-bottom: 1px solid #e0f2fe; padding-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+        th, td { padding: 7px 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f0f9ff; font-weight: 700; color: #0369a1; }
+        .text-right { text-align: right; }
+        .status-gets { color: #15803d; font-weight: 700; }
+        .status-owes { color: #dc2626; font-weight: 700; }
+        .status-settled { color: #64748b; font-weight: 600; }
+        .settle-card { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .footer-signatures { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 15px; }
+        .sig-box { width: 180px; text-align: center; border-top: 1px dashed #666; padding-top: 6px; font-size: 12px; color: #444; }
+        @media print {
+          body { padding: 10mm; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="statement-header">
+        <div>
+          <h1 class="brand-title">FRIENDS EXPENSE CALCULATOR & SPLITTER</h1>
+          <div class="brand-sub">Comprehensive Settlement Breakdown & Audit Statement</div>
+          <div class="brand-sub" style="font-size: 11px;">Independent Friends Group Ledger · Equal & Custom Splits</div>
+        </div>
+        <div class="meta-box">
+          <div>Report Type:</div>
+          <strong>Group Settlement Summary</strong>
+          <div style="margin-top: 4px;">Generated: ${generatedDate}</div>
+        </div>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-box">
+          <div class="kpi-lbl">Total Group Expenses</div>
+          <div class="kpi-val" style="color: #0284c7;">${formatCurrency(summary.totalExpenses)}</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Total Records</div>
+          <div class="kpi-val">${summary.expenseCount} entries</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Pending Debts to Settle</div>
+          <div class="kpi-val" style="color: #ea580c;">${summary.simplifiedDebts.length} Transfers</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Active Participants</div>
+          <div class="kpi-val">${summary.memberBalances.length} members</div>
+        </div>
+      </div>
+
+      <h3>⚡ Simplified Debt Settlements (Minimum Cash Transfers)</h3>
+      ${summary.simplifiedDebts.length === 0 ? `
+        <div style="padding: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; color: #166534; font-weight: 600;">
+          🎉 All group balances are fully settled! No pending debts between friends.
+        </div>
+      ` : `
+        <div>
+          ${summary.simplifiedDebts.map(d => `
+            <div class="settle-card">
+              <div>
+                <strong>${d.fromName}</strong> (${d.fromPhone || 'No phone'}) 
+                <span style="color: #dc2626; margin: 0 6px;">owes &rarr;</span> 
+                <strong>${d.toName}</strong> (${d.toPhone || 'No phone'})
+              </div>
+              <div style="font-size: 15px; font-weight: 800; color: #0284c7;">
+                ${formatCurrency(d.amount)}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+
+      <h3>👥 Individual Balance Ledger</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Friend / Member</th>
+            <th>Contact Phone</th>
+            <th class="text-right">Total Paid (₹)</th>
+            <th class="text-right">Fair Share (₹)</th>
+            <th class="text-right">Net Balance (₹)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${summary.memberBalances.map(mb => `
+            <tr>
+              <td><strong>${mb.name}</strong></td>
+              <td>${mb.phone || '-'}</td>
+              <td class="text-right">${formatCurrency(mb.paid)}</td>
+              <td class="text-right">${formatCurrency(mb.owes)}</td>
+              <td class="text-right" style="font-weight: 700; ${mb.net > 0 ? 'color: #15803d;' : mb.net < 0 ? 'color: #dc2626;' : 'color: #64748b;'}">
+                ${mb.net > 0 ? '+' : ''}${formatCurrency(mb.net)}
+              </td>
+              <td>
+                <span class="${mb.net > 0 ? 'status-gets' : mb.net < 0 ? 'status-owes' : 'status-settled'}">
+                  ${mb.net > 0 ? 'Gets Back' : mb.net < 0 ? 'Owes' : 'Settled'}
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <h3>🧾 Itemized Group Expense Entries</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Title / Reason</th>
+            <th>Category</th>
+            <th>Paid By</th>
+            <th>Split</th>
+            <th>Recorded By</th>
+            <th class="text-right">Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${expenses.map(e => `
+            <tr>
+              <td>${e.date}</td>
+              <td><strong>${e.title}</strong>${e.notes ? `<br><small style="color: #666;">${e.notes}</small>` : ''}</td>
+              <td>${e.category || 'General'}</td>
+              <td>${e.paidByName}</td>
+              <td>${e.splitType === 'equal' ? 'Equal' : 'Custom'} (${e.participants ? e.participants.length : 0})</td>
+              <td><small>${e.createdBy ? e.createdBy.name : '-'}</small></td>
+              <td class="text-right" style="font-weight: 700;">${formatCurrency(e.amount)}</td>
+            </tr>
+          `).join('') || '<tr><td colspan="7">No expenses recorded yet.</td></tr>'}
+        </tbody>
+      </table>
+
+      <div style="text-align: center; margin-top: 25px;">
+        <button onclick="window.print()" style="padding: 10px 22px; background: #0284c7; color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer;">
+          🖨️ Print / Save PDF
+        </button>
+      </div>
+      <script>
+        window.addEventListener('DOMContentLoaded', () => { setTimeout(() => { window.print(); }, 400); });
+      </script>
+    </body>
+    </html>
+  `;
+
+  openPrintWindow(printableHTML, 'Friends_Expenses_Statement');
 }
 
 function openPrintWindow(htmlContent, title) {

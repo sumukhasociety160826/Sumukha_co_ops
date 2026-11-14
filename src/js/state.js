@@ -125,7 +125,82 @@ export const INITIAL_SNAPSHOT = {
       reps: []
     }
   ],
-  invs: []
+  invs: [],
+  oneTimeInvs: [
+    {
+      id: 1791553000001,
+      investorId: 2,
+      investorName: "Kiran",
+      title: "Cooperative Capital Growth Term Deposit",
+      amount: 50000,
+      interestRate: 8.5,
+      tenureMonths: 12,
+      startDate: "2026-08-01",
+      status: "Active",
+      notes: "Special 1-year member capital investment"
+    }
+  ],
+  expenses: [
+    {
+      id: 1791554000001,
+      title: "Annual Cooperative Society Audit & Filing Fee",
+      amount: 6500,
+      date: "2026-09-15",
+      category: "Legal & Audit",
+      paidById: null,
+      paidByName: "Society Treasury",
+      splitType: "equal",
+      participants: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      notes: "Split equally among all 13 active society members",
+      createdBy: { id: 10, name: "Sagar (Admin)", at: "2026-09-15T10:00:00.000Z" },
+      updatedBy: null
+    },
+    {
+      id: 1791554000002,
+      title: "General Body Meeting Refreshments & Snacks",
+      amount: 2600,
+      date: "2026-10-05",
+      category: "Refreshments",
+      paidById: 6,
+      paidByName: "Naveen",
+      splitType: "equal",
+      participants: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      notes: "Tea, snacks and venue booking",
+      createdBy: { id: 6, name: "Naveen (Admin)", at: "2026-10-05T16:30:00.000Z" },
+      updatedBy: null
+    }
+  ],
+  expenseSettlements: [],
+  expenseMembers: [
+    { id: 1, name: "Adith", email: "adith@example.com", phone: "+91 98765 43210" },
+    { id: 2, name: "Kiran", email: "kiran@example.com", phone: "+91 98765 43211" },
+    { id: 3, name: "Madhusudhan", email: "madhusudhan@example.com", phone: "+91 98765 43212" },
+    { id: 4, name: "Manohar", email: "manohar@example.com", phone: "+91 98765 43213" },
+    { id: 5, name: "Muniraj", email: "muniraj@example.com", phone: "+91 98765 43214" },
+    { id: 6, name: "Naveen", email: "naveenkumarm6563@gmail.com", phone: "8951264083" },
+    { id: 7, name: "Prakash", email: "prakash@example.com", phone: "+91 98765 43216" },
+    { id: 8, name: "Ram Dorai", email: "ramdorai@example.com", phone: "+91 98765 43217" },
+    { id: 9, name: "Rakshith", email: "rakshith@example.com", phone: "+91 98765 43218" },
+    { id: 10, name: "Sagar", email: "mysagar95@gmail.com", phone: "8892983068" },
+    { id: 11, name: "Tejas", email: "tejas@example.com", phone: "+91 98765 43220" },
+    { id: 12, name: "Varun", email: "varun@example.com", phone: "+91 98765 43221" },
+    { id: 13, name: "Virata Yashwanth", email: "yashwanth@example.com", phone: "+91 98765 43222" }
+  ],
+  oneTimeMembers: [
+    { id: 1, name: "Adith", email: "adith@example.com", phone: "+91 98765 43210" },
+    { id: 2, name: "Kiran", email: "kiran@example.com", phone: "+91 98765 43211" },
+    { id: 3, name: "Madhusudhan", email: "madhusudhan@example.com", phone: "+91 98765 43212" },
+    { id: 4, name: "Manohar", email: "manohar@example.com", phone: "+91 98765 43213" },
+    { id: 5, name: "Muniraj", email: "muniraj@example.com", phone: "+91 98765 43214" },
+    { id: 6, name: "Naveen", email: "naveenkumarm6563@gmail.com", phone: "8951264083" },
+    { id: 7, name: "Prakash", email: "prakash@example.com", phone: "+91 98765 43216" },
+    { id: 8, name: "Ram Dorai", email: "ramdorai@example.com", phone: "+91 98765 43217" },
+    { id: 9, name: "Rakshith", email: "rakshith@example.com", phone: "+91 98765 43218" },
+    { id: 10, name: "Sagar", email: "mysagar95@gmail.com", phone: "8892983068" },
+    { id: 11, name: "Tejas", email: "tejas@example.com", phone: "+91 98765 43220" },
+    { id: 12, name: "Varun", email: "varun@example.com", phone: "+91 98765 43221" },
+    { id: 13, name: "Virata Yashwanth", email: "yashwanth@example.com", phone: "+91 98765 43222" }
+  ]
 };
 
 const STORAGE_KEY = 'sumukha_society_v4';
@@ -181,6 +256,19 @@ export class AppState {
           parsed.contribs = Array.isArray(parsed.contribs) ? parsed.contribs : [];
           parsed.loans = Array.isArray(parsed.loans) ? parsed.loans : [];
           parsed.invs = Array.isArray(parsed.invs) ? parsed.invs : [];
+          parsed.oneTimeInvs = Array.isArray(parsed.oneTimeInvs) && parsed.oneTimeInvs.length > 0
+            ? parsed.oneTimeInvs
+            : JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.oneTimeInvs));
+          parsed.expenses = Array.isArray(parsed.expenses) && parsed.expenses.length > 0
+            ? parsed.expenses
+            : JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.expenses));
+          parsed.expenseSettlements = Array.isArray(parsed.expenseSettlements) ? parsed.expenseSettlements : [];
+          parsed.expenseMembers = Array.isArray(parsed.expenseMembers) && parsed.expenseMembers.length > 0
+            ? parsed.expenseMembers
+            : JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.expenseMembers));
+          parsed.oneTimeMembers = Array.isArray(parsed.oneTimeMembers) && parsed.oneTimeMembers.length > 0
+            ? parsed.oneTimeMembers
+            : JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.oneTimeMembers));
           parsed.monthly = Number(parsed.monthly) || 10000;
 
           return parsed;
@@ -466,7 +554,12 @@ export class AppState {
         members: members.length > 0 ? members : this.data.members,
         contribs: contribsRes.data ? contribs : this.data.contribs,
         loans: loansRes.data ? loans : this.data.loans,
-        invs: invsRes.data ? invs : this.data.invs
+        invs: invsRes.data ? invs : this.data.invs,
+        oneTimeInvs: Array.isArray(this.data.oneTimeInvs) ? this.data.oneTimeInvs : [],
+        expenses: Array.isArray(this.data.expenses) ? this.data.expenses : [],
+        expenseSettlements: Array.isArray(this.data.expenseSettlements) ? this.data.expenseSettlements : [],
+        expenseMembers: Array.isArray(this.data.expenseMembers) && this.data.expenseMembers.length > 0 ? this.data.expenseMembers : (INITIAL_SNAPSHOT.expenseMembers || []),
+        oneTimeMembers: Array.isArray(this.data.oneTimeMembers) && this.data.oneTimeMembers.length > 0 ? this.data.oneTimeMembers : (INITIAL_SNAPSHOT.oneTimeMembers || [])
       };
 
       this.cloudStatus = 'synced';
@@ -1081,6 +1174,526 @@ export class AppState {
   }
 
   // =========================================================================
+  // ONE-TIME INVESTMENTS (FIXED DEPOSITS & CAPITAL GROWTH DEPOSITS)
+  // =========================================================================
+
+  async addOneTimeInvestment({ investorId, investorName, title, amount, interestRate, tenureMonths, startDate, status, notes }) {
+    if (!this.data.oneTimeInvs) this.data.oneTimeInvs = [];
+    
+    const numAmt = Number(amount);
+    const numRate = Number(interestRate !== undefined ? interestRate : 8.0);
+    const numTenure = Number(tenureMonths !== undefined ? tenureMonths : 12);
+    const invId = Date.now() + Math.floor(Math.random() * 1000);
+
+    const newInv = {
+      id: invId,
+      investorId: investorId ? Number(investorId) : null,
+      investorName: (investorName || '').trim() || 'Society Investor',
+      title: (title || '').trim() || 'One-Time Term Investment',
+      amount: numAmt,
+      interestRate: numRate,
+      tenureMonths: numTenure,
+      startDate: startDate || new Date().toISOString().slice(0, 10),
+      status: status || 'Active',
+      notes: (notes || '').trim()
+    };
+
+    this.data.oneTimeInvs.push(newInv);
+    this.save();
+
+    // Supabase sync (graceful)
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('one_time_investments').insert([{
+          id: newInv.id,
+          investor_id: newInv.investorId,
+          investor_name: newInv.investorName,
+          title: newInv.title,
+          amount: newInv.amount,
+          interest_rate: newInv.interestRate,
+          tenure_months: newInv.tenureMonths,
+          start_date: newInv.startDate,
+          status: newInv.status,
+          notes: newInv.notes
+        }]);
+      } catch (err) {
+        console.warn('Supabase one_time_investments insert note:', err);
+      }
+    }
+
+    await this.recordAuditLog({
+      action: 'ONE_TIME_INVESTMENT_RECORDED',
+      targetType: 'one_time_investment',
+      targetId: newInv.id,
+      details: {
+        investorName: newInv.investorName,
+        title: newInv.title,
+        amount: newInv.amount,
+        rate: newInv.interestRate,
+        tenure: newInv.tenureMonths
+      }
+    });
+
+    return newInv;
+  }
+
+  async updateOneTimeInvestment(id, fields) {
+    if (!this.data.oneTimeInvs) this.data.oneTimeInvs = [];
+    const numId = Number(id);
+    const inv = this.data.oneTimeInvs.find(i => i.id === numId);
+    if (!inv) return null;
+
+    if (fields.investorId !== undefined) inv.investorId = fields.investorId ? Number(fields.investorId) : null;
+    if (fields.investorName !== undefined) inv.investorName = String(fields.investorName).trim();
+    if (fields.title !== undefined) inv.title = String(fields.title).trim();
+    if (fields.amount !== undefined) inv.amount = Number(fields.amount);
+    if (fields.interestRate !== undefined) inv.interestRate = Number(fields.interestRate);
+    if (fields.tenureMonths !== undefined) inv.tenureMonths = Number(fields.tenureMonths);
+    if (fields.startDate !== undefined) inv.startDate = fields.startDate;
+    if (fields.status !== undefined) inv.status = fields.status;
+    if (fields.notes !== undefined) inv.notes = String(fields.notes).trim();
+
+    this.save();
+
+    // Supabase sync
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('one_time_investments').update({
+          investor_id: inv.investorId,
+          investor_name: inv.investorName,
+          title: inv.title,
+          amount: inv.amount,
+          interest_rate: inv.interestRate,
+          tenure_months: inv.tenureMonths,
+          start_date: inv.startDate,
+          status: inv.status,
+          notes: inv.notes
+        }).eq('id', numId);
+      } catch (err) {
+        console.warn('Supabase one_time_investments update note:', err);
+      }
+    }
+
+    await this.recordAuditLog({
+      action: 'ONE_TIME_INVESTMENT_UPDATED',
+      targetType: 'one_time_investment',
+      targetId: numId,
+      details: {
+        title: inv.title,
+        amount: inv.amount,
+        interestRate: inv.interestRate,
+        tenureMonths: inv.tenureMonths,
+        status: inv.status
+      }
+    });
+
+    return inv;
+  }
+
+  async deleteOneTimeInvestment(id) {
+    if (!this.data.oneTimeInvs) this.data.oneTimeInvs = [];
+    const numId = Number(id);
+    const inv = this.data.oneTimeInvs.find(i => i.id === numId);
+    this.data.oneTimeInvs = this.data.oneTimeInvs.filter(i => i.id !== numId);
+    this.save();
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('one_time_investments').delete().eq('id', numId);
+      } catch (err) {
+        console.warn('Supabase one_time_investments delete note:', err);
+      }
+    }
+
+    await this.recordAuditLog({
+      action: 'ONE_TIME_INVESTMENT_DELETED',
+      targetType: 'one_time_investment',
+      targetId: numId,
+      details: inv ? { title: inv.title, amount: inv.amount, investorName: inv.investorName } : {}
+    });
+  }
+
+  getMemberOneTimeInvestments(memberId) {
+    if (!this.data.oneTimeInvs) return [];
+    const mId = Number(memberId);
+    return this.data.oneTimeInvs.filter(i => i.investorId === mId);
+  }
+
+  // =========================================================================
+  // DEDICATED ONE-TIME INVESTMENT MEMBERS / INVESTORS (INDEPENDENT TABLE)
+  // =========================================================================
+
+  getOneTimeMembers() {
+    if (!Array.isArray(this.data.oneTimeMembers) || this.data.oneTimeMembers.length === 0) {
+      this.data.oneTimeMembers = JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.oneTimeMembers));
+      this.save();
+    }
+    return this.data.oneTimeMembers;
+  }
+
+  async addOneTimeMember({ name, phone, email, notes }) {
+    if (!this.data.oneTimeMembers) this.data.oneTimeMembers = [];
+    const maxId = this.data.oneTimeMembers.reduce((m, item) => Math.max(m, item.id || 0), 0);
+    const newId = maxId + 1;
+    const newMember = {
+      id: newId,
+      name: (name || '').trim(),
+      phone: (phone || '').trim(),
+      email: (email || '').trim(),
+      notes: (notes || '').trim()
+    };
+    this.data.oneTimeMembers.push(newMember);
+    this.save();
+
+    await this.recordAuditLog({
+      action: 'ONE_TIME_MEMBER_ADDED',
+      targetType: 'one_time_member',
+      targetId: newId,
+      details: { name: newMember.name, phone: newMember.phone }
+    });
+
+    return newMember;
+  }
+
+  async updateOneTimeMember(id, fields) {
+    if (!this.data.oneTimeMembers) this.data.oneTimeMembers = [];
+    const numId = Number(id);
+    const member = this.data.oneTimeMembers.find(m => m.id === numId);
+    if (!member) return null;
+
+    if (fields.name !== undefined) member.name = String(fields.name).trim();
+    if (fields.phone !== undefined) member.phone = String(fields.phone).trim();
+    if (fields.email !== undefined) member.email = String(fields.email).trim();
+    if (fields.notes !== undefined) member.notes = String(fields.notes).trim();
+
+    this.save();
+
+    await this.recordAuditLog({
+      action: 'ONE_TIME_MEMBER_UPDATED',
+      targetType: 'one_time_member',
+      targetId: numId,
+      details: { name: member.name, fields }
+    });
+
+    return member;
+  }
+
+  async deleteOneTimeMember(id) {
+    if (!this.data.oneTimeMembers) this.data.oneTimeMembers = [];
+    const numId = Number(id);
+    const member = this.data.oneTimeMembers.find(m => m.id === numId);
+    if (!member) return { success: false, message: 'Investor member not found.' };
+
+    this.data.oneTimeMembers = this.data.oneTimeMembers.filter(m => m.id !== numId);
+    this.save();
+
+    await this.recordAuditLog({
+      action: 'ONE_TIME_MEMBER_DELETED',
+      targetType: 'one_time_member',
+      targetId: numId,
+      details: { name: member.name }
+    });
+
+    return { success: true, message: `Removed "${member.name}" from one-time investments.` };
+  }
+
+  // =========================================================================
+  // EXPENSE CALCULATOR & SPLITTER (FRIENDS GROUP - INDEPENDENT FROM SOCIETY)
+  // =========================================================================
+
+  getExpenseMembers() {
+    if (!Array.isArray(this.data.expenseMembers) || this.data.expenseMembers.length === 0) {
+      this.data.expenseMembers = JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.expenseMembers));
+      this.save();
+    }
+    return this.data.expenseMembers;
+  }
+
+  async addExpenseMember({ name, phone, email, notes }) {
+    if (!this.data.expenseMembers) this.data.expenseMembers = [];
+    const maxId = this.data.expenseMembers.reduce((m, item) => Math.max(m, item.id || 0), 0);
+    const newId = maxId + 1;
+    const newMember = {
+      id: newId,
+      name: (name || '').trim(),
+      phone: (phone || '').trim(),
+      email: (email || '').trim(),
+      notes: (notes || '').trim()
+    };
+    this.data.expenseMembers.push(newMember);
+    this.save();
+
+    await this.recordAuditLog({
+      action: 'EXPENSE_MEMBER_ADDED',
+      targetType: 'expense_member',
+      targetId: newId,
+      details: { name: newMember.name, phone: newMember.phone }
+    });
+
+    return newMember;
+  }
+
+  async updateExpenseMember(id, fields) {
+    if (!this.data.expenseMembers) this.data.expenseMembers = [];
+    const numId = Number(id);
+    const member = this.data.expenseMembers.find(m => m.id === numId);
+    if (!member) return null;
+
+    if (fields.name !== undefined) member.name = String(fields.name).trim();
+    if (fields.phone !== undefined) member.phone = String(fields.phone).trim();
+    if (fields.email !== undefined) member.email = String(fields.email).trim();
+    if (fields.notes !== undefined) member.notes = String(fields.notes).trim();
+
+    this.save();
+
+    await this.recordAuditLog({
+      action: 'EXPENSE_MEMBER_UPDATED',
+      targetType: 'expense_member',
+      targetId: numId,
+      details: { name: member.name, fields }
+    });
+
+    return member;
+  }
+
+  async deleteExpenseMember(id) {
+    if (!this.data.expenseMembers) this.data.expenseMembers = [];
+    const numId = Number(id);
+    const member = this.data.expenseMembers.find(m => m.id === numId);
+    if (!member) return { success: false, message: 'Expense member not found.' };
+
+    this.data.expenseMembers = this.data.expenseMembers.filter(m => m.id !== numId);
+    this.save();
+
+    await this.recordAuditLog({
+      action: 'EXPENSE_MEMBER_DELETED',
+      targetType: 'expense_member',
+      targetId: numId,
+      details: { name: member.name }
+    });
+
+    return { success: true, message: `Removed "${member.name}" from expense calculator.` };
+  }
+
+  async addExpense({ title, amount, date, category, paidById, paidByName, splitType, participants, splitDetails, notes, createdBy }) {
+    if (!this.data.expenses) this.data.expenses = [];
+    const expId = Date.now() + Math.floor(Math.random() * 1000);
+
+    // Resolve author attribution to avoid clashes
+    let author = createdBy;
+    if (!author) {
+      const activeAdmin = this.getActiveAdmin();
+      const currentMember = this.getCurrentMember();
+      if (this.isAdmin() && activeAdmin) {
+        author = { id: activeAdmin.id, name: `${activeAdmin.name} (Admin)`, at: new Date().toISOString() };
+      } else if (currentMember) {
+        author = { id: currentMember.id, name: currentMember.name, at: new Date().toISOString() };
+      } else {
+        author = { id: null, name: 'Expense Member', at: new Date().toISOString() };
+      }
+    }
+
+    const availableMembers = this.getExpenseMembers();
+    const defaultParticipants = availableMembers.map(m => m.id);
+
+    const newExpense = {
+      id: expId,
+      title: (title || '').trim() || 'Group Expense',
+      amount: Number(amount),
+      date: date || new Date().toISOString().slice(0, 10),
+      category: category || 'General',
+      paidById: paidById ? Number(paidById) : null,
+      paidByName: (paidByName || '').trim() || (paidById ? (availableMembers.find(m => m.id === Number(paidById))?.name || 'Friend') : 'Friend'),
+      splitType: splitType || 'equal',
+      participants: Array.isArray(participants) && participants.length > 0 ? participants.map(Number) : defaultParticipants,
+      splitDetails: splitDetails || {},
+      notes: (notes || '').trim(),
+      createdBy: author,
+      updatedBy: null
+    };
+
+    this.data.expenses.push(newExpense);
+    this.save();
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('expenses').insert([{
+          id: newExpense.id,
+          title: newExpense.title,
+          amount: newExpense.amount,
+          expense_date: newExpense.date,
+          category: newExpense.category,
+          paid_by_id: newExpense.paidById,
+          paid_by_name: newExpense.paidByName,
+          split_type: newExpense.splitType,
+          participants: newExpense.participants,
+          split_details: newExpense.splitDetails,
+          notes: newExpense.notes
+        }]);
+      } catch (err) {
+        console.warn('Supabase expenses insert note:', err);
+      }
+    }
+
+    await this.recordAuditLog({
+      action: 'EXPENSE_RECORDED',
+      targetType: 'expense',
+      targetId: newExpense.id,
+      details: {
+        title: newExpense.title,
+        amount: newExpense.amount,
+        paidBy: newExpense.paidByName,
+        category: newExpense.category,
+        createdBy: author.name
+      }
+    });
+
+    return newExpense;
+  }
+
+  async updateExpense(id, fields, updatedBy) {
+    if (!this.data.expenses) this.data.expenses = [];
+    const numId = Number(id);
+    const exp = this.data.expenses.find(e => e.id === numId);
+    if (!exp) return null;
+
+    // Resolve editor attribution
+    let editor = updatedBy;
+    if (!editor) {
+      const activeAdmin = this.getActiveAdmin();
+      const currentMember = this.getCurrentMember();
+      if (this.isAdmin() && activeAdmin) {
+        editor = { id: activeAdmin.id, name: `${activeAdmin.name} (Admin)`, at: new Date().toISOString() };
+      } else if (currentMember) {
+        editor = { id: currentMember.id, name: currentMember.name, at: new Date().toISOString() };
+      } else {
+        editor = { id: null, name: 'Society Member', at: new Date().toISOString() };
+      }
+    }
+
+    if (fields.title !== undefined) exp.title = String(fields.title).trim();
+    if (fields.amount !== undefined) exp.amount = Number(fields.amount);
+    if (fields.date !== undefined) exp.date = fields.date;
+    if (fields.category !== undefined) exp.category = fields.category;
+    if (fields.paidById !== undefined) exp.paidById = fields.paidById ? Number(fields.paidById) : null;
+    if (fields.paidByName !== undefined) exp.paidByName = String(fields.paidByName).trim();
+    if (fields.splitType !== undefined) exp.splitType = fields.splitType;
+    if (fields.participants !== undefined) exp.participants = fields.participants.map(Number);
+    if (fields.splitDetails !== undefined) exp.splitDetails = fields.splitDetails;
+    if (fields.notes !== undefined) exp.notes = String(fields.notes).trim();
+    exp.updatedBy = editor;
+
+    this.save();
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('expenses').update({
+          title: exp.title,
+          amount: exp.amount,
+          expense_date: exp.date,
+          category: exp.category,
+          paid_by_id: exp.paidById,
+          paid_by_name: exp.paidByName,
+          split_type: exp.splitType,
+          participants: exp.participants,
+          split_details: exp.splitDetails,
+          notes: exp.notes
+        }).eq('id', numId);
+      } catch (err) {
+        console.warn('Supabase expenses update note:', err);
+      }
+    }
+
+    await this.recordAuditLog({
+      action: 'EXPENSE_UPDATED',
+      targetType: 'expense',
+      targetId: numId,
+      details: { title: exp.title, amount: exp.amount, updatedBy: editor.name }
+    });
+
+    return exp;
+  }
+
+  async deleteExpense(id) {
+    if (!this.data.expenses) this.data.expenses = [];
+    const numId = Number(id);
+    const exp = this.data.expenses.find(e => e.id === numId);
+    this.data.expenses = this.data.expenses.filter(e => e.id !== numId);
+    this.save();
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('expenses').delete().eq('id', numId);
+      } catch (err) {
+        console.warn('Supabase expenses delete note:', err);
+      }
+    }
+
+    await this.recordAuditLog({
+      action: 'EXPENSE_DELETED',
+      targetType: 'expense',
+      targetId: numId,
+      details: exp ? { title: exp.title, amount: exp.amount } : {}
+    });
+  }
+
+  async recordExpenseSettlement({ fromId, fromName, toId, toName, amount, date, notes }) {
+    if (!this.data.expenseSettlements) this.data.expenseSettlements = [];
+    const settleId = Date.now() + Math.floor(Math.random() * 1000);
+
+    const settlement = {
+      id: settleId,
+      fromId: fromId ? Number(fromId) : null,
+      fromName: fromName || 'Member',
+      toId: toId ? Number(toId) : null,
+      toName: toName || 'Member',
+      amount: Number(amount),
+      date: date || new Date().toISOString().slice(0, 10),
+      notes: notes || 'Expense debt settlement'
+    };
+
+    this.data.expenseSettlements.push(settlement);
+    this.save();
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.from('expense_settlements').insert([{
+          id: settlement.id,
+          from_member_id: settlement.fromId,
+          from_member_name: settlement.fromName,
+          to_member_id: settlement.toId,
+          to_member_name: settlement.toName,
+          amount: settlement.amount,
+          settlement_date: settlement.date,
+          notes: settlement.notes
+        }]);
+      } catch (err) {
+        console.warn('Supabase expense_settlements insert note:', err);
+      }
+    }
+
+    await this.recordAuditLog({
+      action: 'EXPENSE_SETTLED',
+      targetType: 'expense_settlement',
+      targetId: settlement.id,
+      details: {
+        from: settlement.fromName,
+        to: settlement.toName,
+        amount: settlement.amount
+      }
+    });
+
+    return settlement;
+  }
+
+  // =========================================================================
   // MEMBERS MANAGEMENT WITH CLOUD SYNC & AUDIT TRAIL
   // =========================================================================
 
@@ -1180,6 +1793,43 @@ export class AppState {
     return { success: true, message: `Details for "${member.name}" successfully updated and saved in database.` };
   }
 
+  async deleteMember(memberId) {
+    const id = Number(memberId);
+    const member = this.data.members.find(m => m.id === id);
+    if (!member) {
+      return { success: false, message: 'Member profile not found.' };
+    }
+
+    // Safety: Protect primary system administrators from accidental deletion
+    if (id === 10 || id === 6) {
+      return { success: false, message: `Primary administrator "${member.name}" (#${id}) cannot be deleted.` };
+    }
+
+    // Remove from local members list
+    this.data.members = this.data.members.filter(m => m.id !== id);
+
+    this.save();
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { error } = await client.from('members').delete().eq('id', id);
+        if (error) console.warn('Supabase member delete warning:', error);
+      } catch (err) {
+        console.warn('Supabase member delete sync note:', err);
+      }
+    }
+
+    await this.recordAuditLog({
+      action: 'MEMBER_DELETED',
+      targetType: 'member',
+      targetId: id,
+      details: { name: member.name, email: member.email, phone: member.phone }
+    });
+
+    return { success: true, message: `Member "${member.name}" (#${id}) deleted successfully.` };
+  }
+
   updateMonthlyDefault(amt) {
     this.data.monthly = Number(amt) || 10000;
     try {
@@ -1216,7 +1866,12 @@ export class AppState {
       members: backupData.members,
       contribs: Array.isArray(backupData.contribs) ? backupData.contribs : [],
       loans: Array.isArray(backupData.loans) ? backupData.loans : [],
-      invs: Array.isArray(backupData.invs) ? backupData.invs : []
+      invs: Array.isArray(backupData.invs) ? backupData.invs : [],
+      oneTimeInvs: Array.isArray(backupData.oneTimeInvs) ? backupData.oneTimeInvs : (this.data.oneTimeInvs || []),
+      expenses: Array.isArray(backupData.expenses) ? backupData.expenses : (this.data.expenses || []),
+      expenseSettlements: Array.isArray(backupData.expenseSettlements) ? backupData.expenseSettlements : (this.data.expenseSettlements || []),
+      expenseMembers: Array.isArray(backupData.expenseMembers) ? backupData.expenseMembers : (this.data.expenseMembers || INITIAL_SNAPSHOT.expenseMembers),
+      oneTimeMembers: Array.isArray(backupData.oneTimeMembers) ? backupData.oneTimeMembers : (this.data.oneTimeMembers || INITIAL_SNAPSHOT.oneTimeMembers)
     };
 
     this.save();

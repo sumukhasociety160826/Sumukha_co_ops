@@ -37,6 +37,12 @@
           <span class="role-tag">VIEW ONLY</span>
         </div>
 
+        <!-- Portal Mode Switcher (Co-Op Society <-> Expense Calculator) -->
+        <button id="btn-toggle-portal-mode" class="btn-sm btn-mode-toggle" onclick="window.togglePortalMode()" title="Switch between Co-Op Society and Expense Calculator">
+          <span id="portal-mode-icon">🧾</span>
+          <span id="portal-mode-text">Expense Calculator</span>
+        </button>
+
         <!-- Light / Dark Mode Toggle -->
         <button class="btn-sm" onclick="window.toggleTheme()" title="Toggle Dark/Light Mode">
           🌓 Theme
@@ -96,13 +102,29 @@
     window.addEventListener('DOMContentLoaded', () => {
       initApp();
       
-      // Register Progressive Web App (PWA) Service Worker
-      if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-        navigator.serviceWorker.register('./sw.js').then((reg) => {
-          console.log('[PWA] Service worker registered successfully:', reg.scope);
-        }).catch((err) => {
-          console.warn('[PWA] Service worker registration notice:', err);
-        });
+      // Progressive Web App (PWA) Service Worker Management
+      if ('serviceWorker' in navigator) {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          // Unregister and clear caches on localhost to ensure developers always see live edits
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const registration of registrations) {
+              registration.unregister();
+            }
+          });
+          if ('caches' in window) {
+            caches.keys().then((keys) => {
+              for (const key of keys) {
+                caches.delete(key);
+              }
+            });
+          }
+        } else if (window.location.protocol === 'https:') {
+          navigator.serviceWorker.register('./sw.js').then((reg) => {
+            console.log('[PWA] Service worker registered successfully:', reg.scope);
+          }).catch((err) => {
+            console.warn('[PWA] Service worker registration notice:', err);
+          });
+        }
       }
     });
 

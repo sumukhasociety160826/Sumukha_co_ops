@@ -88,6 +88,50 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 8. One-Time Investments Table (Fixed Deposits & Member Capital Investments)
+CREATE TABLE IF NOT EXISTS one_time_investments (
+    id BIGSERIAL PRIMARY KEY,
+    investor_id INT REFERENCES members(id) ON DELETE SET NULL,
+    investor_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    amount NUMERIC NOT NULL CHECK (amount > 0),
+    interest_rate NUMERIC NOT NULL DEFAULT 8.0,
+    tenure_months INT NOT NULL DEFAULT 12,
+    start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Matured', 'Closed', 'Foreclosed')),
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 9. Expenses Table (Society & Group Shared Expenses)
+CREATE TABLE IF NOT EXISTS expenses (
+    id BIGSERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    amount NUMERIC NOT NULL CHECK (amount > 0),
+    expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    category TEXT NOT NULL DEFAULT 'General',
+    paid_by_id INT REFERENCES members(id) ON DELETE SET NULL,
+    paid_by_name TEXT NOT NULL DEFAULT 'Society Treasury',
+    split_type TEXT NOT NULL DEFAULT 'equal', -- 'equal', 'exact'
+    participants JSONB NOT NULL DEFAULT '[]'::jsonb,
+    split_details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 10. Expense Debt Settlements Table
+CREATE TABLE IF NOT EXISTS expense_settlements (
+    id BIGSERIAL PRIMARY KEY,
+    from_member_id INT,
+    from_member_name TEXT NOT NULL,
+    to_member_id INT,
+    to_member_name TEXT NOT NULL,
+    amount NUMERIC NOT NULL CHECK (amount > 0),
+    settlement_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- =============================================================================
 -- Row Level Security (RLS) & Column Compatibility
 -- =============================================================================

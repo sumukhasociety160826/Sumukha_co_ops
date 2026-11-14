@@ -62,6 +62,9 @@ export function calculateTotals(data) {
 
   const totalNetProfit = totalInterestEarned + investmentGain;
 
+  // One-time investments metrics
+  const oneTimeSummary = calculateOneTimeInvestmentsSummary(data);
+
   return {
     totalContributions,
     totalLent,
@@ -72,7 +75,11 @@ export function calculateTotals(data) {
     cashInHand,
     totalOutstandingLoans,
     totalInterestEarned,
-    totalNetProfit
+    totalNetProfit,
+    totalOneTimePrincipal: oneTimeSummary.totalPrincipal,
+    totalOneTimeExpectedInterest: oneTimeSummary.totalExpectedInterest,
+    totalOneTimeMaturityValue: oneTimeSummary.totalMaturityValue,
+    oneTimeSummary
   };
 }
 
@@ -307,5 +314,212 @@ export function calculateInvestmentsSummary(data) {
     totalCost,
     totalValue,
     totalGain: totalValue - totalCost
+  };
+}
+
+/**
+ * One-Time Investment (Fixed / Term Deposit) Return Analytics
+ */
+export function calculateOneTimeInvestmentReturn(inv) {
+  if (!inv) return { principal: 0, rate: 0, months: 0, years: 0, interestEarned: 0, maturityAmount: 0, isMatured: false };
+  const principal = Number(inv.amount || 0);
+  const rate = Number(inv.interestRate !== undefined ? inv.interestRate : 8.0);
+  const months = Number(inv.tenureMonths || 12);
+  const years = months / 12;
+  const interestEarned = Math.round((principal * rate * years) / 100);
+  const maturityAmount = principal + interestEarned;
+  const startDate = inv.startDate || getTodayDate();
+  const maturityDate = addMonths(startDate, months);
+  const today = getTodayDate();
+  const isMatured = inv.status === 'Matured' || (inv.status !== 'Closed' && today >= maturityDate);
+
+  return {
+    principal,
+    rate,
+    months,
+    years,
+    interestEarned,
+    maturityAmount,
+    startDate,
+    maturityDate,
+    isMatured
+  };
+}
+
+/**
+ * Society-wide One-Time Investments Summary
+ */
+export function calculateOneTimeInvestmentsSummary(data) {
+  const oneTimeInvs = (data && data.oneTimeInvs) || [];
+  let totalPrincipal = 0;
+  let totalExpectedInterest = 0;
+  let activeCount = 0;
+  let maturedCount = 0;
+
+  oneTimeInvs.forEach(inv => {
+    const calc = calculateOneTimeInvestmentReturn(inv);
+    totalPrincipal += calc.principal;
+    totalExpectedInterest += calc.interestEarned;
+    if (inv.status === 'Matured' || calc.isMatured) {
+      maturedCount++;
+    } else {
+      activeCount++;
+    }
+  });
+
+  return {
+    count: oneTimeInvs.length,
+    totalPrincipal,
+    totalExpectedInterest,
+    totalMaturityValue: totalPrincipal + totalExpectedInterest,
+    activeCount,
+    maturedCount
+  };
+}
+
+/**
+ * Expense Calculator & Splitter Balances & Settlement Engine
+ */
+export function calculateExpensesSummary(data) {
+  const expenses = (data && data.expenses) || [];
+  const members = (data && Array.isArray(data.expenseMembers) && data.expenseMembers.length > 0)
+    ? data.expenseMembers
+    : ((data && data.members) || []);
+  const settlements = (data && data.expenseSettlements) || [];
+
+  let totalExpenseAmount = 0;
+  let societyPaidAmount = 0;
+  let memberPaidAmount = 0;
+
+  const memberBalances = {};
+  members.forEach(m => {
+    memberBalances[m.id] = {
+      id: m.id,
+      name: m.name,
+      phone: m.phone || '',
+      email: m.email || '',
+      totalPaid: 0,
+      totalShare: 0,
+      netBalance: 0
+    };
+  });
+
+  const societyTreasury = {
+    id: 'society',
+    name: 'Society Treasury',
+    totalPaid: 0,
+    totalShare: 0,
+    netBalance: 0
+  };
+
+  expenses.forEach(exp => {
+    const amt = Number(exp.amount || 0);
+    totalExpenseAmount += amt;
+
+    // Track payer
+    const pId = Number(exp.paidById);
+    if (pId && memberBalances[pId]) {
+      memberBalances[pId].totalPaid += amt;
+      memberPaidAmount += amt;
+    } else {
+      societyTreasury.totalPaid += amt;
+      societyPaidAmount += amt;
+    }
+
+    // Determine participants
+    const participants = (Array.isArray(exp.participants) && exp.participants.length > 0)
+      ? exp.participants.map(Number)
+      : members.map(m => m.id);
+    const count = participants.length;
+
+    if (count > 0) {
+      if (exp.splitType === 'exact' && exp.splitDetails) {
+        participants.forEach(pid => {
+          const share = Number(exp.splitDetails[pid] || 0);
+          if (memberBalances[pid]) memberBalances[pid].totalShare += share;
+        });
+      } else {
+        // Equal split with precise penny/rupee distribution
+        const baseShare = Math.floor(amt / count);
+        const remainder = amt - (baseShare * count);
+        participants.forEach((pid, idx) => {
+          const share = baseShare + (idx < remainder ? 1 : 0);
+          if (memberBalances[pid]) memberBalances[pid].totalShare += share;
+        });
+      }
+    }
+  });
+
+  // Calculate Net Balances
+  members.forEach(m => {
+    memberBalances[m.id].netBalance = memberBalances[m.id].totalPaid - memberBalances[m.id].totalShare;
+  });
+  societyTreasury.netBalance = societyTreasury.totalPaid - societyTreasury.totalShare;
+
+  // Factor in settlements
+  settlements.forEach(s => {
+    const sAmt = Number(s.amount || 0);
+    const fromId = Number(s.fromId);
+    const toId = Number(s.toId);
+    if (fromId && memberBalances[fromId]) {
+      memberBalances[fromId].netBalance += sAmt;
+    }
+    if (toId && memberBalances[toId]) {
+      memberBalances[toId].netBalance -= sAmt;
+    }
+  });
+
+  // Debt Simplification Algorithm (Minimal cash transactions to settle all debts)
+  const debtors = [];
+  const creditors = [];
+
+  Object.values(memberBalances).forEach(b => {
+    const net = Math.round(b.netBalance);
+    if (net < -1) {
+      debtors.push({ id: b.id, name: b.name, phone: b.phone || '', email: b.email || '', owes: -net });
+    } else if (net > 1) {
+      creditors.push({ id: b.id, name: b.name, phone: b.phone || '', email: b.email || '', receives: net });
+    }
+  });
+
+  debtors.sort((a, b) => b.owes - a.owes);
+  creditors.sort((a, b) => b.receives - a.receives);
+
+  const simplifiedDebts = [];
+  let dIdx = 0;
+  let cIdx = 0;
+
+  while (dIdx < debtors.length && cIdx < creditors.length) {
+    const debtor = debtors[dIdx];
+    const creditor = creditors[cIdx];
+    const settleAmt = Math.min(debtor.owes, creditor.receives);
+
+    if (settleAmt > 0) {
+      simplifiedDebts.push({
+        fromId: debtor.id,
+        fromName: debtor.name,
+        fromPhone: debtor.phone,
+        toId: creditor.id,
+        toName: creditor.name,
+        toPhone: creditor.phone,
+        amount: settleAmt
+      });
+    }
+
+    debtor.owes -= settleAmt;
+    creditor.receives -= settleAmt;
+
+    if (debtor.owes <= 1) dIdx++;
+    if (creditor.receives <= 1) cIdx++;
+  }
+
+  return {
+    totalExpenseAmount,
+    societyPaidAmount,
+    memberPaidAmount,
+    memberBalances: Object.values(memberBalances),
+    societyTreasury,
+    simplifiedDebts,
+    expenseCount: expenses.length
   };
 }
