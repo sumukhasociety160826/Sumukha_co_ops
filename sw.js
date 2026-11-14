@@ -3,7 +3,7 @@
  * Provides offline caching, instantaneous load times, and standalone mobile app experience.
  */
 
-const CACHE_NAME = 'sumukha-cache-v3';
+const CACHE_NAME = 'sumukha-cache-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

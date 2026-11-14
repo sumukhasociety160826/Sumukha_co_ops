@@ -256,20 +256,25 @@ export class AppState {
           parsed.contribs = Array.isArray(parsed.contribs) ? parsed.contribs : [];
           parsed.loans = Array.isArray(parsed.loans) ? parsed.loans : [];
           parsed.invs = Array.isArray(parsed.invs) ? parsed.invs : [];
-          parsed.oneTimeInvs = Array.isArray(parsed.oneTimeInvs) && parsed.oneTimeInvs.length > 0
+          parsed.oneTimeInvs = Array.isArray(parsed.oneTimeInvs)
             ? parsed.oneTimeInvs
             : JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.oneTimeInvs));
-          parsed.expenses = Array.isArray(parsed.expenses) && parsed.expenses.length > 0
+          parsed.expenses = Array.isArray(parsed.expenses)
             ? parsed.expenses
             : JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.expenses));
           parsed.expenseSettlements = Array.isArray(parsed.expenseSettlements) ? parsed.expenseSettlements : [];
-          parsed.expenseMembers = Array.isArray(parsed.expenseMembers) && parsed.expenseMembers.length > 0
+          parsed.expenseMembers = Array.isArray(parsed.expenseMembers)
             ? parsed.expenseMembers
             : JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.expenseMembers));
-          parsed.oneTimeMembers = Array.isArray(parsed.oneTimeMembers) && parsed.oneTimeMembers.length > 0
+          parsed.oneTimeMembers = Array.isArray(parsed.oneTimeMembers)
             ? parsed.oneTimeMembers
             : JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.oneTimeMembers));
           parsed.monthly = Number(parsed.monthly) || 10000;
+
+          // Migrate and persist to v4 key immediately so older caches are never re-queried
+          if (!localStorage.getItem(STORAGE_KEY)) {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); } catch (e) {}
+          }
 
           return parsed;
         }
@@ -558,8 +563,8 @@ export class AppState {
         oneTimeInvs: Array.isArray(this.data.oneTimeInvs) ? this.data.oneTimeInvs : [],
         expenses: Array.isArray(this.data.expenses) ? this.data.expenses : [],
         expenseSettlements: Array.isArray(this.data.expenseSettlements) ? this.data.expenseSettlements : [],
-        expenseMembers: Array.isArray(this.data.expenseMembers) && this.data.expenseMembers.length > 0 ? this.data.expenseMembers : (INITIAL_SNAPSHOT.expenseMembers || []),
-        oneTimeMembers: Array.isArray(this.data.oneTimeMembers) && this.data.oneTimeMembers.length > 0 ? this.data.oneTimeMembers : (INITIAL_SNAPSHOT.oneTimeMembers || [])
+        expenseMembers: Array.isArray(this.data.expenseMembers) ? this.data.expenseMembers : [],
+        oneTimeMembers: Array.isArray(this.data.oneTimeMembers) ? this.data.oneTimeMembers : []
       };
 
       this.cloudStatus = 'synced';
@@ -1295,8 +1300,8 @@ export class AppState {
   async deleteOneTimeInvestment(id) {
     if (!this.data.oneTimeInvs) this.data.oneTimeInvs = [];
     const numId = Number(id);
-    const inv = this.data.oneTimeInvs.find(i => i.id === numId);
-    this.data.oneTimeInvs = this.data.oneTimeInvs.filter(i => i.id !== numId);
+    const inv = this.data.oneTimeInvs.find(i => Number(i.id) === numId);
+    this.data.oneTimeInvs = this.data.oneTimeInvs.filter(i => Number(i.id) !== numId);
     this.save();
 
     const client = getSupabaseClient();
@@ -1314,6 +1319,8 @@ export class AppState {
       targetId: numId,
       details: inv ? { title: inv.title, amount: inv.amount, investorName: inv.investorName } : {}
     });
+
+    return { success: true, message: 'One-time investment record removed.' };
   }
 
   getMemberOneTimeInvestments(memberId) {
@@ -1327,7 +1334,7 @@ export class AppState {
   // =========================================================================
 
   getOneTimeMembers() {
-    if (!Array.isArray(this.data.oneTimeMembers) || this.data.oneTimeMembers.length === 0) {
+    if (!Array.isArray(this.data.oneTimeMembers)) {
       this.data.oneTimeMembers = JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.oneTimeMembers));
       this.save();
     }
@@ -1384,10 +1391,10 @@ export class AppState {
   async deleteOneTimeMember(id) {
     if (!this.data.oneTimeMembers) this.data.oneTimeMembers = [];
     const numId = Number(id);
-    const member = this.data.oneTimeMembers.find(m => m.id === numId);
+    const member = this.data.oneTimeMembers.find(m => Number(m.id) === numId);
     if (!member) return { success: false, message: 'Investor member not found.' };
 
-    this.data.oneTimeMembers = this.data.oneTimeMembers.filter(m => m.id !== numId);
+    this.data.oneTimeMembers = this.data.oneTimeMembers.filter(m => Number(m.id) !== numId);
     this.save();
 
     await this.recordAuditLog({
@@ -1405,7 +1412,7 @@ export class AppState {
   // =========================================================================
 
   getExpenseMembers() {
-    if (!Array.isArray(this.data.expenseMembers) || this.data.expenseMembers.length === 0) {
+    if (!Array.isArray(this.data.expenseMembers)) {
       this.data.expenseMembers = JSON.parse(JSON.stringify(INITIAL_SNAPSHOT.expenseMembers));
       this.save();
     }
@@ -1462,10 +1469,10 @@ export class AppState {
   async deleteExpenseMember(id) {
     if (!this.data.expenseMembers) this.data.expenseMembers = [];
     const numId = Number(id);
-    const member = this.data.expenseMembers.find(m => m.id === numId);
+    const member = this.data.expenseMembers.find(m => Number(m.id) === numId);
     if (!member) return { success: false, message: 'Expense member not found.' };
 
-    this.data.expenseMembers = this.data.expenseMembers.filter(m => m.id !== numId);
+    this.data.expenseMembers = this.data.expenseMembers.filter(m => Number(m.id) !== numId);
     this.save();
 
     await this.recordAuditLog({
@@ -1622,8 +1629,8 @@ export class AppState {
   async deleteExpense(id) {
     if (!this.data.expenses) this.data.expenses = [];
     const numId = Number(id);
-    const exp = this.data.expenses.find(e => e.id === numId);
-    this.data.expenses = this.data.expenses.filter(e => e.id !== numId);
+    const exp = this.data.expenses.find(e => Number(e.id) === numId);
+    this.data.expenses = this.data.expenses.filter(e => Number(e.id) !== numId);
     this.save();
 
     const client = getSupabaseClient();
@@ -1641,6 +1648,8 @@ export class AppState {
       targetId: numId,
       details: exp ? { title: exp.title, amount: exp.amount } : {}
     });
+
+    return { success: true, message: 'Expense record deleted successfully.' };
   }
 
   async recordExpenseSettlement({ fromId, fromName, toId, toName, amount, date, notes }) {

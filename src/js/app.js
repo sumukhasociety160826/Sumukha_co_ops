@@ -123,7 +123,7 @@ export function showConfirmModal({ title = 'Confirmation', message, confirmText 
         <button class="modal-close-btn" id="btn-close-confirm-modal">✕</button>
       </div>
       <div style="font-size: 14px; color: var(--text-main); margin-bottom: 22px; line-height: 1.5;">
-        ${escapeHTML(message)}
+        ${message}
       </div>
       <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
         <button class="btn-sm" id="btn-cancel-confirm-modal" style="min-width: 90px;">${escapeHTML(cancelText)}</button>
@@ -1788,7 +1788,7 @@ function renderExpensesSplitterView() {
                   </span>
                 </td>
                 <td style="text-align: center; white-space: nowrap;">
-                  <button class="btn-sm btn-gold btn-edit-expense" data-id="${e.id}" title="Edit Expense (Open to all)">
+                  <button class="btn-sm btn-gold btn-edit-expense" data-id="${e.id}" title="Edit Expense">
                     ✏️ Edit
                   </button>
                   ${isAdmin ? `
@@ -1827,7 +1827,7 @@ function renderExpensesSplitterView() {
               <th>Friend Name</th>
               <th>Contact Phone</th>
               <th>Email Address</th>
-              <th style="text-align: center;">Actions</th>
+              ${isAdmin ? '<th style="text-align: center;">Actions</th>' : ''}
             </tr>
           </thead>
           <tbody>
@@ -1837,11 +1837,13 @@ function renderExpensesSplitterView() {
                 <td><strong>${escapeHTML(m.name)}</strong></td>
                 <td>${escapeHTML(m.phone || '—')}</td>
                 <td>${escapeHTML(m.email || '—')}</td>
-                <td style="text-align: center;">
-                  <button class="btn-sm btn-danger btn-del-expense-member" data-id="${m.id}" data-name="${escapeHTML(m.name)}" title="Remove friend from expense calculator">
-                    🗑️ Delete
-                  </button>
-                </td>
+                ${isAdmin ? `
+                  <td style="text-align: center;">
+                    <button class="btn-sm btn-danger btn-del-expense-member" data-id="${m.id}" data-name="${escapeHTML(m.name)}" title="Remove friend from expense calculator (Admin only)">
+                      🗑️ Delete
+                    </button>
+                  </td>
+                ` : ''}
               </tr>
             `).join('')}
           </tbody>
@@ -2225,12 +2227,6 @@ function attachViewListeners() {
   // Expense Calculator Members Quick Add (OPEN TO ALL USERS)
   $('btn-add-expense-member')?.addEventListener('click', openAddExpenseMemberModal);
 
-  document.querySelectorAll('.btn-del-expense-member').forEach(b => {
-    b.addEventListener('click', (e) => {
-      handleDeleteExpenseMember(Number(e.currentTarget.dataset.id), e.currentTarget.dataset.name);
-    });
-  });
-
   document.querySelectorAll('.btn-settle-debt').forEach(b => {
     b.addEventListener('click', (e) => {
       handleSettleDebt(e.currentTarget);
@@ -2377,14 +2373,23 @@ function attachViewListeners() {
 
     document.querySelectorAll('.btn-del-onetime-member').forEach(b => {
       b.addEventListener('click', (e) => {
+        e.stopPropagation();
         handleDeleteOneTimeMember(Number(e.currentTarget.dataset.id), e.currentTarget.dataset.name);
       });
     });
 
-    // Delete Expense (ADMIN ONLY)
+    // Expense Tracker Deletion Handlers (ADMIN ONLY)
     document.querySelectorAll('.btn-del-expense').forEach(b => {
       b.addEventListener('click', (e) => {
+        e.stopPropagation();
         handleDeleteExpense(Number(e.currentTarget.dataset.id));
+      });
+    });
+
+    document.querySelectorAll('.btn-del-expense-member').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleDeleteExpenseMember(Number(e.currentTarget.dataset.id), e.currentTarget.dataset.name);
       });
     });
 
@@ -2694,15 +2699,23 @@ async function handleAddOneTimeInvestment() {
 }
 
 function handleDeleteOneTimeInvestment(id) {
+  if (!state.isAdmin()) {
+    showToast('Permission denied: Only administrators can delete one-time investments.', 'error');
+    return;
+  }
+  const numId = Number(id);
+  const inv = (state.data.oneTimeInvs || []).find(i => Number(i.id) === numId);
+  const invTitle = inv ? `${inv.investorName} - ${inv.title || 'Term Deposit'}` : 'this investment record';
+
   showConfirmModal({
     title: 'Delete One-Time Investment',
-    message: 'Are you sure you want to delete this one-time investment record? This action will update the portfolio.',
+    message: `Are you sure you want to delete <strong>${escapeHTML(invTitle)}</strong>? This action will update the portfolio.`,
     confirmText: 'Delete',
     isDanger: true,
     onConfirm: async () => {
-      await state.deleteOneTimeInvestment(id);
-      showToast('One-time investment record removed.', 'info');
-      renderActiveTab();
+      const res = await state.deleteOneTimeInvestment(numId);
+      showToast(res?.message || 'One-time investment record removed.', 'info');
+      render();
     }
   });
 }
@@ -2977,16 +2990,21 @@ function openAddExpenseMemberModal() {
 }
 
 function handleDeleteExpenseMember(id, name) {
+  if (!state.isAdmin()) {
+    showToast('Permission denied: Only administrators can remove friends from expense calculator.', 'error');
+    return;
+  }
+  const numId = Number(id);
   showConfirmModal({
     title: 'Remove Friend from Expense Calculator',
     message: `Are you sure you want to remove <strong>${escapeHTML(name)}</strong> from the Friends Expense Calculator? This will not affect the Co-Op Society member directory.`,
     confirmText: 'Remove',
     isDanger: true,
     onConfirm: async () => {
-      const res = await state.deleteExpenseMember(id);
+      const res = await state.deleteExpenseMember(numId);
       if (res.success) {
         showToast(res.message, 'success');
-        renderActiveTab();
+        render();
       } else {
         showToast(res.message, 'error');
       }
@@ -3129,7 +3147,12 @@ function openEditOneTimeMemberModal(id) {
 }
 
 function handleDeleteOneTimeMember(id, name) {
-  const activeInvs = (state.data.oneTimeInvs || []).filter(i => (i.investorId === Number(id) || i.investorName === name) && i.status !== 'Closed');
+  if (!state.isAdmin()) {
+    showToast('Permission denied: Only administrators can delete one-time investment investors.', 'error');
+    return;
+  }
+  const numId = Number(id);
+  const activeInvs = (state.data.oneTimeInvs || []).filter(i => (Number(i.investorId) === numId || i.investorName === name) && i.status !== 'Closed');
   let extraWarn = '';
   if (activeInvs.length > 0) {
     const totalActive = activeInvs.reduce((s, i) => s + Number(i.amount || 0), 0);
@@ -3138,14 +3161,14 @@ function handleDeleteOneTimeMember(id, name) {
 
   showConfirmModal({
     title: 'Delete One-Time Investment Investor',
-    message: `Are you sure you want to delete investor <strong>${escapeHTML(name)}</strong> (#${id}) from One-Time Investments? This does not modify the Co-Op Society member directory.${extraWarn}`,
+    message: `Are you sure you want to delete investor <strong>${escapeHTML(name)}</strong> (#${numId}) from One-Time Investments? This does not modify the Co-Op Society member directory.${extraWarn}`,
     confirmText: 'Delete Investor',
     isDanger: true,
     onConfirm: async () => {
-      const res = await state.deleteOneTimeMember(id);
+      const res = await state.deleteOneTimeMember(numId);
       if (res.success) {
         showToast(res.message, 'success');
-        renderActiveTab();
+        render();
       } else {
         showToast(res.message, 'error');
       }
@@ -3340,15 +3363,23 @@ async function handleAddExpense() {
 }
 
 function handleDeleteExpense(id) {
+  if (!state.isAdmin()) {
+    showToast('Permission denied: Only administrators can delete expense records.', 'error');
+    return;
+  }
+  const numId = Number(id);
+  const exp = (state.data.expenses || []).find(e => Number(e.id) === numId);
+  const expTitle = exp ? exp.title : 'this expense record';
+
   showConfirmModal({
     title: 'Delete Expense Record',
-    message: 'Are you sure you want to delete this expense record? Balances will be recalculated.',
+    message: `Are you sure you want to delete <strong>${escapeHTML(expTitle)}</strong>? Balances and split shares will be recalculated.`,
     confirmText: 'Delete',
     isDanger: true,
     onConfirm: async () => {
-      await state.deleteExpense(id);
-      showToast('Expense record deleted.', 'info');
-      renderActiveTab();
+      const res = await state.deleteExpense(numId);
+      showToast(res?.message || 'Expense record deleted.', 'info');
+      render();
     }
   });
 }
@@ -3414,9 +3445,12 @@ function openEditExpenseModal(id) {
           <label style="font-size: 12px; font-weight: bold;">Notes:</label>
           <input type="text" id="edit-exp-notes" value="${escapeHTML(exp.notes || '')}" style="width: 100%;">
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-sm" id="btn-cancel-edit-exp">Cancel</button>
-          <button type="button" class="btn-primary" id="btn-save-edit-exp">💾 Save Changes</button>
+        <div class="modal-footer" style="display: flex; justify-content: ${state.isAdmin() ? 'space-between' : 'flex-end'}; align-items: center;">
+          ${state.isAdmin() ? '<button type="button" class="btn-sm btn-danger" id="btn-del-from-edit-exp">🗑️ Delete Expense</button>' : ''}
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-sm" id="btn-cancel-edit-exp">Cancel</button>
+            <button type="button" class="btn-primary" id="btn-save-edit-exp">💾 Save Changes</button>
+          </div>
         </div>
       </form>
     </div>
@@ -3426,6 +3460,12 @@ function openEditExpenseModal(id) {
   const close = () => modal.remove();
   modal.querySelector('#btn-close-edit-exp').onclick = close;
   modal.querySelector('#btn-cancel-edit-exp').onclick = close;
+  if (state.isAdmin() && modal.querySelector('#btn-del-from-edit-exp')) {
+    modal.querySelector('#btn-del-from-edit-exp').onclick = () => {
+      close();
+      handleDeleteExpense(id);
+    };
+  }
 
   modal.querySelector('#btn-save-edit-exp').onclick = async () => {
     const title = modal.querySelector('#edit-exp-title').value.trim();
