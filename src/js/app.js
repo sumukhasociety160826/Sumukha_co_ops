@@ -340,6 +340,7 @@ function renderNavigation() {
   const tabs = [
     { id: 'Dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'Members', icon: '👥', label: 'Members' },
+    { id: 'RuleBook', icon: '📖', label: 'Rule Book' },
     { id: 'Contributions', icon: '💰', label: 'Contributions' },
     { id: 'Loans', icon: '📜', label: 'Loans & EMI' },
     { id: 'Investments', icon: '📈', label: 'Investments' },
@@ -380,6 +381,9 @@ function renderActiveTab() {
       break;
     case 'Members':
       container.innerHTML = renderMembersView();
+      break;
+    case 'RuleBook':
+      container.innerHTML = renderRuleBookView();
       break;
     case 'Contributions':
       container.innerHTML = renderContributionsView();
@@ -809,6 +813,281 @@ function renderMembersView() {
       </div>
     </div>
   `;
+}
+
+function renderRuleBookView() {
+  return `
+    <div class="ruled-book-wrapper">
+      <!-- Quick Action Controls -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="margin: 0; font-size: 22px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+            <span>📖</span> Society Rule Book
+          </h2>
+          <div style="font-size: 13.5px; color: var(--text-muted); margin-top: 4px;">
+            Official governing rules, monthly contribution terms, loan eligibility limits, and repayment protocols.
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button class="btn-sm btn-gold" id="btn-copy-rulebook" title="Copy full rule book to clipboard">
+            📋 Copy Rules
+          </button>
+          <button class="btn-sm btn-primary" id="btn-print-rulebook" title="Print official rule book or export as PDF">
+            🖨️ Print / Save PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Ruled Notebook Paper Container -->
+      <div class="ruled-paper">
+        <!-- Notebook / Charter Header -->
+        <div class="ruled-paper-header">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(245, 158, 11, 0.15); border: 1.5px solid var(--gold-border); display: flex; align-items: center; justify-content: center; font-size: 22px;">
+              🏛️
+            </div>
+            <div>
+              <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--gold-main); font-weight: 800;">
+                Sumukha Co-Operative Society
+              </div>
+              <div style="font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: 0.02em;">
+                Official Operational Bylaws &amp; Rule Book
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: var(--gold-main); border: 1px solid var(--gold-border); font-size: 12px; font-weight: 700;">
+              ⚖️ Standard Governance
+            </span>
+            <span class="badge" style="background: rgba(37, 99, 235, 0.25); color: #bfdbfe; border: 1px solid rgba(37, 99, 235, 0.4); font-size: 12px; font-weight: 700;">
+              💰 ₹1,10,000 Monthly Pool
+            </span>
+          </div>
+        </div>
+
+        <!-- Ruled Paper Body (With Red Double Margin & Ruled Paper Lines) -->
+        <div class="ruled-paper-body">
+
+          <!-- Section 1: Monthly Collection -->
+          <div class="ruled-section">
+            <div class="ruled-section-header">
+              <span class="ruled-badge gold">Rule 01</span>
+              <h3 class="ruled-section-title">Monthly Collection</h3>
+            </div>
+            <div class="ruled-lines-group">
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>Every member must pay their agreed monthly contribution before the society meeting/date.</div>
+              </div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>The total monthly collection is <strong>₹1,10,000</strong>.</div>
+              </div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>The collected amount will be available for members who want to take the amount at <strong>1% monthly interest</strong>.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Eligibility to Take Money -->
+          <div class="ruled-section">
+            <div class="ruled-section-header">
+              <span class="ruled-badge gold">Rule 02</span>
+              <h3 class="ruled-section-title">Eligibility to Take Money</h3>
+            </div>
+            <div class="ruled-lines-group">
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>A member must be regular with their monthly contribution.</div>
+              </div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>Members contributing <strong>₹5,000/month</strong> can have only <strong>1 active/running loan</strong> at a time.</div>
+              </div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>Members contributing <strong>₹10,000/month</strong> can have up to <strong>2 active/running loans</strong> at the same time.</div>
+              </div>
+              <div class="ruled-line-row" style="color: var(--danger); font-weight: 600;">
+                <span class="ruled-bullet" style="color: var(--danger);">⚠️</span>
+                <div>A member cannot exceed their permitted number of running loans.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Priority / Opportunity -->
+          <div class="ruled-section">
+            <div class="ruled-section-header">
+              <span class="ruled-badge gold">Rule 03</span>
+              <h3 class="ruled-section-title">Priority / Opportunity</h3>
+            </div>
+            <div class="ruled-lines-group">
+              <div class="ruled-sub-intro">To make the system fair:</div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>Every month, members who want to take the society amount can participate.</div>
+              </div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>The amount will be given to the member agreeing to pay <strong>1% monthly interest</strong>, subject to the society’s rules.</div>
+              </div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>If multiple members are interested, priority can be decided by draw/rotation/bidding, as agreed by all members.</div>
+              </div>
+              <div class="ruled-line-row" style="color: var(--danger); font-weight: 600;">
+                <span class="ruled-bullet" style="color: var(--danger);">⛔</span>
+                <div>A member who already has the maximum permitted running loans cannot participate until one of their existing loans is closed.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 4: Special Benefit for ₹10,000 Members -->
+          <div class="ruled-section">
+            <div class="ruled-section-header">
+              <span class="ruled-badge gold">Rule 04</span>
+              <h3 class="ruled-section-title">Special Benefit for ₹10,000 Members</h3>
+            </div>
+            <div class="ruled-lines-group">
+              <div class="ruled-sub-intro">Because ₹10,000 members contribute twice as much as ₹5,000 members:</div>
+              <div class="ruled-benefit-grid">
+                <div class="ruled-benefit-card highlight">
+                  <span class="member-tier">₹10,000 member</span>
+                  <span class="loan-opps">→ 2 opportunities for active loans</span>
+                </div>
+                <div class="ruled-benefit-card">
+                  <span class="member-tier">₹5,000 member</span>
+                  <span class="loan-opps">→ 1 opportunity for an active loan</span>
+                </div>
+              </div>
+
+              <!-- Example Box -->
+              <div class="ruled-example-container">
+                <div class="ruled-example-header">
+                  <span>📌</span> Example:
+                </div>
+                <div class="ruled-example-grid">
+                  <!-- Person A -->
+                  <div class="ruled-example-card">
+                    <div class="ruled-example-person" style="display: flex; justify-content: space-between; align-items: center;">
+                      <span>Person A</span>
+                      <span class="badge" style="background: var(--gold-tint); color: var(--gold-dark); border: 1px solid var(--gold-border); font-size: 11.5px; font-weight: bold;">₹10,000 contribution</span>
+                    </div>
+                    <div class="ruled-loan-item active">
+                      <span>Loan 1: Active</span>
+                      <span>✅</span>
+                    </div>
+                    <div class="ruled-loan-item active">
+                      <span>Loan 2: Active</span>
+                      <span>✅</span>
+                    </div>
+                    <div class="ruled-loan-item not-allowed">
+                      <span>Loan 3: Not allowed</span>
+                      <span>❌</span>
+                    </div>
+                  </div>
+
+                  <!-- Person B -->
+                  <div class="ruled-example-card">
+                    <div class="ruled-example-person" style="display: flex; justify-content: space-between; align-items: center;">
+                      <span>Person B</span>
+                      <span class="badge" style="background: var(--navy-light); color: var(--navy-blue); border: 1px solid rgba(37,99,235,0.3); font-size: 11.5px; font-weight: bold;">₹5,000 contribution</span>
+                    </div>
+                    <div class="ruled-loan-item active">
+                      <span>Loan 1: Active</span>
+                      <span>✅</span>
+                    </div>
+                    <div class="ruled-loan-item not-allowed">
+                      <span>Loan 2: Not allowed until Loan 1 is completely closed</span>
+                      <span>❌</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 5: Closing a Loan -->
+          <div class="ruled-section" style="margin-bottom: 0;">
+            <div class="ruled-section-header">
+              <span class="ruled-badge gold">Rule 05</span>
+              <h3 class="ruled-section-title">Closing a Loan</h3>
+            </div>
+            <div class="ruled-lines-group">
+              <div class="ruled-sub-intro">Once a member completely repays the principal amount ( min 2 month to be paid )and applicable interest:</div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>Their loan is considered closed.</div>
+              </div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>They can again use their available loan opportunity.</div>
+              </div>
+              <div class="ruled-line-row">
+                <span class="ruled-bullet">•</span>
+                <div>For a ₹10,000 member, if one of two loans is closed, they can take another loan while the other remains active.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function handleCopyRuleBook() {
+  const rulesText = `SUMUKHA CO-OPERATIVE SOCIETY - OFFICIAL RULE BOOK
+
+Monthly Collection
+Every member must pay their agreed monthly contribution before the society meeting/date.
+The total monthly collection is ₹1,10,000.
+The collected amount will be available for members who want to take the amount at 1% monthly interest.
+
+Eligibility to Take Money
+A member must be regular with their monthly contribution.
+Members contributing ₹5,000/month can have only 1 active/running loan at a time.
+Members contributing ₹10,000/month can have up to 2 active/running loans at the same time.
+A member cannot exceed their permitted number of running loans.
+
+Priority / Opportunity
+To make the system fair:
+Every month, members who want to take the society amount can participate.
+The amount will be given to the member agreeing to pay 1% monthly interest, subject to the society’s rules.
+If multiple members are interested, priority can be decided by draw/rotation/bidding, as agreed by all members.
+A member who already has the maximum permitted running loans cannot participate until one of their existing loans is closed.
+
+Special Benefit for ₹10,000 Members
+Because ₹10,000 members contribute twice as much as ₹5,000 members:
+₹10,000 member → 2 opportunities for active loans
+₹5,000 member → 1 opportunity for an active loan
+
+Example:
+Person A – ₹10,000 contribution
+Loan 1: Active ✅
+Loan 2: Active ✅
+Loan 3: Not allowed ❌
+
+Person B – ₹5,000 contribution
+Loan 1: Active ✅
+Loan 2: Not allowed until Loan 1 is completely closed ❌
+
+Closing a Loan
+Once a member completely repays the principal amount ( min 2 month to be paid )and applicable interest:
+Their loan is considered closed.
+They can again use their available loan opportunity.
+For a ₹10,000 member, if one of two loans is closed, they can take another loan while the other remains active.`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(rulesText).then(() => {
+      showToast('Official Rule Book copied to clipboard!', 'success');
+    }).catch(() => {
+      showToast('Rule Book copied!', 'info');
+    });
+  } else {
+    showToast('Rule Book text selected', 'info');
+  }
 }
 
 function renderContributionsView() {
@@ -2290,6 +2569,12 @@ function attachViewListeners() {
     });
   });
 
+  // Rule Book Handlers (Available to everyone)
+  $('btn-print-rulebook')?.addEventListener('click', () => {
+    window.print();
+  });
+  $('btn-copy-rulebook')?.addEventListener('click', handleCopyRuleBook);
+
   // =========================================================================
   // ADMINISTRATOR RESTRICTED HANDLERS
   // =========================================================================
@@ -2462,15 +2747,6 @@ function attachViewListeners() {
       });
     });
   }
-
-  // Email Preview (Available to everyone)
-  document.querySelectorAll('.btn-preview-email').forEach(b => {
-    b.addEventListener('click', (e) => {
-      const name = e.target.dataset.name;
-      const due = e.target.dataset.due;
-      openEmailPreview(name, due);
-    });
-  });
 }
 
 function handleContribMemberChange() {

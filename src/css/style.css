@@ -2004,3 +2004,305 @@ body.role-member .admin-only {
     position: static;
   }
 }
+
+/* ==========================================================================
+   Ruled Notebook / Official Rule Book Design System
+   ========================================================================== */
+.ruled-book-wrapper {
+  max-width: 980px;
+  margin: 0 auto 36px auto;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.ruled-paper {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 40px -10px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.ruled-paper-header {
+  background: linear-gradient(135deg, #070e1b 0%, #0f172a 45%, #172554 100%);
+  color: #ffffff;
+  padding: 24px 32px;
+  border-bottom: 3px solid var(--gold-main);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ruled-paper-body {
+  position: relative;
+  padding: 36px 40px 48px 72px;
+  background-color: var(--surface);
+  /* Classic Ruled Notebook Paper Horizontal Ruling */
+  background-image: linear-gradient(to bottom, transparent 31px, var(--border) 31px, var(--border) 32px);
+  background-size: 100% 32px;
+  line-height: 32px;
+}
+
+/* Classic vertical left margin rule (Red Double Line like Ruled Stationery) */
+.ruled-paper-body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 48px;
+  width: 3px;
+  border-left: 1px solid rgba(239, 68, 68, 0.5);
+  border-right: 1px solid rgba(239, 68, 68, 0.5);
+  pointer-events: none;
+}
+
+/* Rule Section Container */
+.ruled-section {
+  margin-bottom: 32px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(2px);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  padding: 20px 24px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="dark"] .ruled-section {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(51, 65, 85, 0.6);
+}
+
+.ruled-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+
+.ruled-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 4px;
+  background: var(--navy-primary);
+  color: #ffffff;
+  border: 1px solid var(--navy-rich);
+}
+
+.ruled-badge.gold {
+  background: var(--gold-gradient);
+  color: #0f172a;
+  border-color: var(--gold-border);
+}
+
+.ruled-section-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+.ruled-lines-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ruled-line-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14.5px;
+  color: var(--text-main);
+  line-height: 1.6;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.25);
+}
+
+.ruled-line-row:last-child {
+  border-bottom: none;
+}
+
+.ruled-bullet {
+  color: var(--gold-main);
+  font-weight: 900;
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.ruled-sub-intro {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+/* Benefit Cards Grid */
+.ruled-benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 14px 0 18px 0;
+}
+
+.ruled-benefit-card {
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ruled-benefit-card.highlight {
+  background: var(--gold-tint);
+  border-color: var(--gold-border);
+}
+
+.ruled-benefit-card .member-tier {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.ruled-benefit-card .loan-opps {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--navy-blue);
+}
+
+.ruled-benefit-card.highlight .loan-opps {
+  color: var(--gold-dark);
+}
+
+/* Example Box Layout */
+.ruled-example-container {
+  margin-top: 16px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+}
+
+.ruled-example-header {
+  font-weight: 800;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ruled-example-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.ruled-example-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.ruled-example-person {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--text-main);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+
+.ruled-loan-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px dotted var(--border);
+}
+
+.ruled-loan-item:last-child {
+  border-bottom: none;
+}
+
+.ruled-loan-item.active {
+  color: var(--navy-blue);
+  font-weight: 600;
+}
+
+.ruled-loan-item.not-allowed {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Responsive Ruled Paper */
+@media (max-width: 640px) {
+  .ruled-paper-header {
+    padding: 18px 20px;
+  }
+  .ruled-paper-body {
+    padding: 24px 16px 36px 36px;
+  }
+  .ruled-paper-body::before {
+    left: 20px;
+  }
+  .ruled-section {
+    padding: 14px 14px;
+    margin-bottom: 20px;
+  }
+  .ruled-line-row {
+    font-size: 13.5px;
+  }
+}
+
+/* Print Rules Optimization */
+@media print {
+  header, #tab-nav, .quick-action-bar, .header-actions, button, #btn-print-rulebook, #btn-copy-rulebook {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+  }
+  .ruled-book-wrapper {
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+  .ruled-paper {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .ruled-paper-header {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .ruled-section {
+    page-break-inside: avoid;
+    border: 1px solid #cbd5e1 !important;
+  }
+}
+
